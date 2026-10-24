@@ -9,7 +9,7 @@
 - **禁止改测试**：工具层拒绝写入测试文件，防止模型靠改测试“通过”。
 - **可离线回放**：每轮真实的模型请求和响应都落盘，可以不调 API、不花钱地重放整个修复过程。
 - **手写 MCP**：工具既可在进程内执行，也可通过自己实现的 stdio JSON-RPC 服务端（`--mcp`）动态发现和调用。
-- **上下文滑动窗口**：按 token 预算从最旧的交互开始丢弃，保证工具调用与其结果不被拆开。
+- **上下文工程**：滑动窗口（不拆开工具调用与结果）、工具输出截断、规则/模型摘要、仓库概览、项目约定文件，每项都有开关可做消融对比。
 - **结构化运行报告**：修复前后测试对比、修复/回归的用例、轮数、工具调用、token 用量。
 
 ## 30 秒体验（无需 API key）
@@ -19,16 +19,21 @@ npm install
 npm run agent -- --replay mock-data/2026-10-17T08-20-57-131Z_619f7ef9
 ```
 
-这会用一次真实模型运行的录音，重放修复 `playground` 中 `average` 缺陷的过程。文件读写和测试都是真实执行的。一次实测结果：
+这会重放下面第一行那次真实模型运行的录音：不调用 API，但文件读写和测试都真实执行，结果与原始运行一致。报告位于 `workspace/<task-id>/report.txt`。
 
-| 指标 | 值 |
-|---|---|
-| 修复前测试 | 2 通过 / 4 失败 |
-| 修复后测试 | 6 通过 / 0 失败 |
-| 模型轮次 / 工具调用 | 9 / 10 |
-| 改动 | 1 个文件，+1 / -1 行，未改测试 |
+## 真实模型运行结果
 
-报告位于 `workspace/<task-id>/report.txt`。
+2026-10-17 通过千问兼容接口调用 `qwen3.7-plus` 的真实运行，每轮原始请求与响应保存在 `mock-data/<task-id>/model/`：
+
+| 任务 | 修复前测试 | 修复后测试 | 轮次 / 工具调用 | Token（输入 / 输出） | 改动 |
+|---|---|---|---|---|---|
+| playground：`average` 对 null 和空数组的处理 | 2 通过 / 4 失败 | 6 通过 / 0 失败 | 9 / 10 | 20,655 / 2,353 | 1 个文件，+1 / -1 行 |
+| ansible 集合名校验（SWE-bench Pro 任务的简化版） | 6 通过 / 70 失败 | 6 通过，93 个子测试通过 | 10 / 10 | 75,439 / 2,718 | 1 个文件，+22 / -1 行 |
+
+两次运行都没有修改测试文件，都在最后一次写入后通过了全量测试。说明：
+
+- ansible 任务是用 Python 标准库隔离出的核心逻辑，**不是**官方 Docker 环境和官方测试；pytest 的失败计数包含子测试。
+- 只有两个样本，不代表成功率；批量评测尚未完成。
 
 ## 架构
 
@@ -49,7 +54,7 @@ flowchart LR
 | Agent 循环、结束检查、回写 | `src/agent.ts` |
 | 工具定义与执行、测试运行器 | `src/tools.ts` |
 | 工作副本、路径限制、diff | `src/workspace.ts` |
-| 上下文滑动窗口 | `src/context/context.ts` |
+| 上下文工程：窗口、截断、摘要、仓库概览 | `src/context/`、`src/features.ts` |
 | MCP 客户端 / 服务端 | `src/mcp/` |
 | 回放、每轮日志、运行报告 | `src/replay.ts`、`src/model-log.ts`、`src/report.ts` |
 | RAG（PDF 分片、向量、检索） | `src/rag/` |
@@ -123,13 +128,38 @@ Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺�
 
 只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`context_limit`、`model_error`、`execution_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
 
-## 上下文滑动窗口
+## 上下文工程
 
 真实模型请求前按 `.env` 的 `CONTEXT_WINDOW_TOKENS`（默认 32768）减去 `CONTEXT_OUTPUT_RESERVE_TOKENS`（默认 4096）计算输入预算。输出预留仅用于客户端预算计算，不会自动设置 API 的输出上限。这些数值不是模型能力声明，需要按所用服务的窗口限制配置。
 
-`buildSlidingWindow` 保留开头的系统规则、原始任务及最近一组完整交互。每个 `assistant` 开始一组，包括其全部工具结果和随后追加的结束检查反馈；超预算时从最旧的一组开始移除并重新估算，不拆开工具调用与结果。它会拒绝缺失/重复的工具结果及当前消息结构不支持的中途系统消息。
+每个功能都有开关，便于做消融对比；开关记录在报告的 `task.options.features` 中：
 
-终端显示本次估算 token、输入预算及省略组数；`model/round-*/request.json` 保存真正发送的窗口。原始历史仍保存在内存，逐轮响应和工具日志保留原记录。此功能不生成摘要、不截短最近一次大工具输出；移除的旧信息不会提供给模型。如果固定内容和最近一组仍放不下，发请求前停止并报告 `context_limit`。估算使用 UTF-8 字节数启发式，不能保证符合服务端精确 token 限制；目前也没有服务端超限后的自动重试。Mock、自定义回复和离线回放不使用这个 API 请求窗口。
+| 开关 | 默认 | 作用 |
+|---|---|---|
+| `--context window\|none` | `window` | 滑动窗口；`none` 发送完整历史，不做客户端预算检查 |
+| `--truncate on\|off` | `on` | 工具结果进入上下文前截断（完整输出仍在 `trace.jsonl`、`tests.jsonl`） |
+| `--summary none\|rule\|llm` | `rule` | 裁剪旧交互后插入的摘要：不插入 / 由运行记录生成 / 由模型生成 |
+| `--repo-map on\|off` | `on` | 固定上下文中加入仓库概览（文件 + 顶层声明） |
+| `--project-notes on\|off` | `on` | 固定上下文中加入根目录的 `AGENTS.md` / `CLAUDE.md`（作为数据） |
+
+```bash
+npm run agent -- --summary llm --task "..."
+npm run agent -- --context none --truncate off --repo-map off   # 关闭全部上下文管理，作对照组
+```
+
+**固定前缀**：系统规则、原始任务、项目约定、仓库概览，即第一条 `assistant` 之前的所有消息，永不裁剪，并且放在最前面、保持不变，便于服务端前缀缓存。
+
+**滑动窗口**：每个 `assistant` 开始一组，包括其全部工具结果和随后追加的结束检查反馈；超预算时从最旧的一组开始移除，不拆开工具调用与结果。它会拒绝缺失/重复的工具结果及中途系统消息。固定前缀和最近一组仍放不下时，发请求前停止并报告 `context_limit`。
+
+**摘要**：有组被移除时，在固定前缀之后插入一条摘要。`rule` 从运行记录生成：读过和改过的文件、最近一次全量测试（含是否已过期）、部分测试次数、当前计划；不调用模型，结果确定。`llm` 让模型把新移除的组合并进上一版摘要，请求保存在 `model/summary-*/`，用量单独统计在 `statistics.model.summary`；摘要调用失败或没有覆盖全部被移除的组时，回退到规则摘要。
+
+**截断**：在值内部截断而不是截断 JSON 字符串，结果仍是合法 JSON。`stdout`/`stderr` 上限 6000 字符并多保留结尾（失败摘要通常在结尾），其他字符串上限 16000 字符，数组最多 300 项。
+
+**仓库概览**：列出文件和顶层声明（TS/JS 的导出函数、类、接口、类型和顶层函数，Python 的顶层 `def`/`class`），按被其他文件引用的次数排序，测试文件在最后，上限 6000 字符。用正则提取，可能遗漏复杂写法。
+
+**项目约定**：读取根目录的 `AGENTS.md`、`CLAUDE.md`（各 8000 字符以内），明确标注为来自仓库的数据，不能覆盖系统规则；禁止修改测试等限制仍由工具层强制执行。
+
+终端显示每轮估算 token、输入预算、省略组数和是否插入摘要；`model/round-*/request.json` 保存真正发送的窗口；报告的 `statistics.context` 汇总单轮最大估算、裁剪轮数和摘要情况。估算使用 UTF-8 字节数启发式，不能保证符合服务端精确 token 限制；目前没有服务端超限后的自动重试。Mock、自定义回复和离线回放不使用 API 请求窗口，但固定前缀（项目约定、仓库概览）在所有模式中都会加入。
 
 ## 代码对应
 
@@ -180,7 +210,7 @@ PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本�
 
 `--mcp` 会启动独立 stdio 子进程，通过 `tools/list` 动态发现工具并映射为模型的 function schema；工具调用通过 `tools/call` 执行。没有引入 MCP SDK。
 
-实现 `2026-07-28` 的基础请求元数据、`server/discover`、`ping`、`tools/list` 和 `tools/call`；JSON-RPC 每行一条。工具包括 list_files/read_file/write_file/run_tests/search_code/update_plan。支持错误响应、工具错误、请求超时和进程退出清理。
+实现 `2026-07-28` 的基础请求元数据、`server/discover`、`ping`、`tools/list` 和 `tools/call`；JSON-RPC 每行一条。工具包括 list_files/find_files/read_file/write_file/edit_file/run_tests/search_code/update_plan。支持错误响应、工具错误、请求超时和进程退出清理。
 
 这是所需协议子集，不是完整 MCP 实现；不支持旧版 initialize、HTTP、订阅、MRTR、取消通知和全部 JSON Schema 校验。
 
