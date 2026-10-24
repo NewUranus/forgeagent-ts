@@ -3,16 +3,17 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ROOT } from "./config.js";
 import { runAgent } from "./agent.js";
+import { parseFeatures } from "./features.js";
 import { runRepairDemo } from "./runner.js";
 import { chunkPages } from "./rag/chunker.js";
 import { embed, queryPrompt } from "./rag/embedding.js";
 import { loadIndex, search } from "./rag/retriever.js";
 import type { Chunk, VectorIndex } from "./types.js";
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" } } });
   const [command, action, argument] = positionals;
   if (command === "agent") {
-    const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined });
+    const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values) });
     if (report.status !== "passed") process.exitCode = 1;
   } else if (command === "runner") {
     if ((await runRepairDemo()).final_status !== "passed") process.exitCode = 1;

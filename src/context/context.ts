@@ -29,23 +29,18 @@ export function checkContextBudget(estimatedTokens: number, inputBudget: number)
   }
 }
 
-// 返回本次请求的窗口，不修改原始历史。适用于当前 Agent 的 system + user 开头结构。
-export function buildSlidingWindow(
-  messages: readonly Message[],
-  tools: readonly unknown[],
-  inputBudget: number,
-): { messages: Message[]; estimatedTokens: number; droppedGroups: number } {
-  checkContextBudget(0, inputBudget);
+// 把历史拆成固定前缀和交互组：第一条 assistant 之前的消息（系统规则、任务、项目约定、仓库地图）都是固定前缀，永不裁剪；
+// 之后每个 assistant 开始一组，包含它的全部工具结果及随后的结束检查反馈。
+export function splitGroups(messages: readonly Message[]): { fixed: Message[]; groups: Message[][] } {
   if (messages[0]?.role !== "system" || messages[1]?.role !== "user") {
     throw new Error("上下文必须以系统规则和原始任务开始");
   }
+  let fixedCount = 2;
+  while (fixedCount < messages.length && messages[fixedCount].role === "user") fixedCount++;
 
-  const fixedMessages = messages.slice(0, 2);
   const groups: Message[][] = [];
   const pendingCalls = new Set<string>();
-
-  // 每个 assistant 开始一组；该组包含全部工具结果及可能的结束检查反馈。
-  for (const message of messages.slice(2)) {
+  for (const message of messages.slice(fixedCount)) {
     if (message.role === "assistant") {
       if (pendingCalls.size) throw new Error("工具调用缺少对应结果，不能构建上下文窗口");
       groups.push([message]);
@@ -70,12 +65,36 @@ export function buildSlidingWindow(
     }
   }
   if (pendingCalls.size) throw new Error("工具调用缺少对应结果，不能构建上下文窗口");
+  return { fixed: messages.slice(0, fixedCount), groups };
+}
+
+export interface WindowOptions {
+  /** Text standing in for the dropped groups, given how many were dropped; null adds nothing. */
+  summary?: (droppedGroups: number) => string | null;
+}
+
+// 返回本次请求的窗口，不修改原始历史。
+// 有摘要时，它紧跟固定前缀：固定前缀保持不变，便于服务端前缀缓存。
+export function buildSlidingWindow(
+  messages: readonly Message[],
+  tools: readonly unknown[],
+  inputBudget: number,
+  options: WindowOptions = {},
+): { messages: Message[]; estimatedTokens: number; droppedGroups: number; summarized: boolean } {
+  checkContextBudget(0, inputBudget);
+  const { fixed, groups } = splitGroups(messages);
 
   let droppedGroups = 0;
-  const selectMessages = () => [
-    ...fixedMessages,
-    ...groups.slice(droppedGroups).flat(),
-  ];
+  let summarized = false;
+  const selectMessages = () => {
+    const summary = droppedGroups > 0 ? options.summary?.(droppedGroups) ?? null : null;
+    summarized = summary !== null;
+    return [
+      ...fixed,
+      ...(summary !== null ? [{ role: "user" as const, content: summary }] : []),
+      ...groups.slice(droppedGroups).flat(),
+    ];
+  };
   let selected = selectMessages();
   let estimatedTokens = estimateRequestToken(selected, tools);
 
@@ -88,5 +107,5 @@ export function buildSlidingWindow(
 
   // 固定消息、工具定义或最近一组仍然过大时，停止而不是破坏工具调用关系。
   checkContextBudget(estimatedTokens, inputBudget);
-  return { messages: selected, estimatedTokens, droppedGroups };
+  return { messages: selected, estimatedTokens, droppedGroups, summarized };
 }

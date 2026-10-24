@@ -108,11 +108,12 @@ export class TestHistory {
   }
 }
 
-export async function modelStatistics(taskDir: string) {
+async function callStatistics(taskDir: string, kind: "round" | "summary") {
   const dir = path.join(taskDir, "model");
+  const pattern = new RegExp(`^${kind}-\\d+$`);
   const rounds = (await fs.readdir(dir).catch((e: NodeJS.ErrnoException) => {
     if (e.code === "ENOENT") return []; throw e;
-  })).filter(name => /^round-\d+$/.test(name)).sort();
+  })).filter(name => pattern.test(name)).sort();
   const tokens: Record<"prompt_tokens" | "completion_tokens" | "total_tokens", number | null> = {
     prompt_tokens: null, completion_tokens: null, total_tokens: null,
   };
@@ -144,6 +145,13 @@ export async function modelStatistics(taskDir: string) {
       complete: apiCalls > 0 && Object.values(reported).every(count => count === apiCalls) } };
 }
 
+/** Agent turns; model-written context summaries are reported separately under `summary`. */
+export async function modelStatistics(taskDir: string) {
+  const summary = await callStatistics(taskDir, "summary");
+  return { ...await callStatistics(taskDir, "round"),
+    summary: { api_calls: summary.api_calls, duration_ms: summary.duration_ms, usage: summary.usage } };
+}
+
 export function changeSummary(changes: { path: string; before: string; after: string; deleted: boolean }[]) {
   const files = changes.map(change => {
     const lines = diffLines(change.before, change.after);
@@ -161,7 +169,8 @@ export function renderReport(report: {
   task: { text: string; source: string; mode: string; initial_fingerprint: Awaited<ReturnType<typeof fingerprint>> };
   timing: { started_at: string; ended_at: string; duration_ms: number };
   termination: { reason: string; error: string | null; verified: boolean; plan: Awaited<ReturnType<typeof readPlanProgress>> };
-  statistics: { model: Awaited<ReturnType<typeof modelStatistics>>; tool_calls: number; successful_writes: number; test_runs: number };
+  statistics: { model: Awaited<ReturnType<typeof modelStatistics>>; tool_calls: number; successful_writes: number; test_runs: number;
+    context?: { max_estimated_tokens: number; rounds_with_dropping: number; max_dropped_groups: number; summarized_rounds: number; llm_summary_calls: number; llm_summary_errors: number } };
   tests: ReturnType<TestHistory["summary"]>; changes: ReturnType<typeof changeSummary>;
 }) {
   const testText = (test: TestRun | null) => !test ? "未执行" : `${test.status}；通过计数 ${test.counts.passed ?? "未知"}，失败计数 ${test.counts.failed ?? "未知"}，子测试通过 ${test.counts.subtests_passed ?? "未知"}${test.failed_subtest_names.length ? `；已识别失败子测试 ${test.failed_subtest_names.length} 个` : ""}`;
@@ -182,6 +191,7 @@ export function renderReport(report: {
     `最终修改后验证：${report.termination.verified ? "通过" : "未通过或未执行"}`, "",
     `模型轮次：${model.rounds}；真实 API 调用：${model.api_calls}；工具调用：${report.statistics.tool_calls}`,
     `成功写入：${report.statistics.successful_writes}；测试执行：${report.statistics.test_runs}（含基线和回写验证）`,
+    ...(report.statistics.context?.max_estimated_tokens ? [`上下文：单轮最大估算 ${report.statistics.context.max_estimated_tokens} tokens；裁剪 ${report.statistics.context.rounds_with_dropping} 轮（最多省略 ${report.statistics.context.max_dropped_groups} 组）；插入摘要 ${report.statistics.context.summarized_rounds} 轮；模型摘要调用 ${report.statistics.context.llm_summary_calls} 次，失败 ${report.statistics.context.llm_summary_errors} 次`] : []),
     `Token：输入 ${model.usage.prompt_tokens ?? "未知/不适用"} / 输出 ${model.usage.completion_tokens ?? "未知/不适用"} / 总计 ${model.usage.total_tokens ?? "未知/不适用"}；用量完整：${model.usage.complete ? "是" : "否/不适用"}`,
     `改动：${report.changes.file_count} 个文件，+${report.changes.added_lines} / -${report.changes.deleted_lines} 行`,
     ...report.changes.files.map(file => `  ${file.path}：+${file.added_lines} / -${file.deleted_lines}`),

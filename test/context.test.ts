@@ -114,7 +114,8 @@ test("API gets the selected window; irreducible overflow makes no API call and i
     } else message = { role: "assistant", content: "继续检查" };
     return new Response(JSON.stringify({ choices: [{ message }] }), { headers: { "Content-Type": "application/json" } });
   });
-  const report = await runAgent({ base, source, mock: false, maxRounds: 3 });
+  // Plain window behavior: no extra fixed context and no summary message.
+  const report = await runAgent({ base, source, mock: false, maxRounds: 3, features: { repoMap: false, projectNotes: false, summary: "none" } });
   assert.equal(requests.length, 3);
   assert.deepEqual(requests[2].messages.slice(0, 2), requests[0].messages);
   assert.equal(requests[2].messages[2].tool_calls[0].id, "list");
@@ -126,7 +127,7 @@ test("API gets the selected window; irreducible overflow makes no API call and i
   assert.match(await fs.readFile(path.join(report.task_dir, "trace.jsonl"), "utf8"), /old-output/);
 
   process.env.CONTEXT_WINDOW_TOKENS = "257";
-  const blocked = await runAgent({ base, source, mock: false });
+  const blocked = await runAgent({ base, source, mock: false, features: { repoMap: false, projectNotes: false, summary: "none" } });
   assert.equal(requests.length, 3);
   assert.equal(blocked.status, "error");
   assert.equal(blocked.termination.reason, "context_limit");
