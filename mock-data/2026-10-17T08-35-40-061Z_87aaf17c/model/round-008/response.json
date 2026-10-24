@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-941e6d68-5843-964d-a5c6-b1bee09b992f",
+  "object": "chat.completion",
+  "created": 1792226183,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "The user asked me to fix the `is_valid_collection_name` function. I've already made the fix and written the file. Now I need to run the tests to confirm they pass. Let me run the tests now.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_af46f644b88e48beb45d2d05",
+            "type": "function",
+            "function": {
+              "name": "run_tests",
+              "arguments": "{}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 11772,
+    "total_tokens": 11834,
+    "completion_tokens": 62,
+    "prompt_tokens_details": {
+      "cached_tokens": 10880,
+      "text_tokens": 11772
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 45,
+      "text_tokens": 62
+    }
+  }
+}

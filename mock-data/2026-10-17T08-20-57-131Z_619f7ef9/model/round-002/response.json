@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-d8be2c8e-6585-9e17-9b76-5cc2aff39deb",
+  "object": "chat.completion",
+  "created": 1792225261,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let me start by listing the files to understand the project structure.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_6355a2c591c1435a8f058bca",
+            "type": "function",
+            "function": {
+              "name": "list_files",
+              "arguments": "{}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1067,
+    "total_tokens": 1096,
+    "completion_tokens": 29,
+    "prompt_tokens_details": {
+      "cached_tokens": 512,
+      "text_tokens": 1067
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 13,
+      "text_tokens": 29
+    }
+  }
+}

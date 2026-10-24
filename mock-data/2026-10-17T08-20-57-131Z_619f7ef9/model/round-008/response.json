@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-e1e3a457-2296-9da5-8e5a-5f7ec04e8a90",
+  "object": "chat.completion",
+  "created": 1792225294,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "测试全部通过了。现在更新计划并总结结果。",
+        "content": "全部 6 个测试通过！现在更新计划并总结：\n\n",
+        "tool_calls": [
+          {
+            "id": "call_a13cd335bb4a41f2b3cab7e6",
+            "type": "function",
+            "function": {
+              "name": "update_plan",
+              "arguments": "{\"steps\": \n[{\"description\": \"了解项目结构和文件\", \"id\": \"1\", \"status\": \"completed\"}, {\"description\": \"阅读源代码和测试文件\", \"id\": \"2\", \"status\": \"completed\"}, {\"description\": \"运行测试，查看是否有失败\", \"id\": \"3\", \"status\": \"completed\"}, {\"description\": \"修复失败的测试\", \"id\": \"4\", \"status\": \"completed\"}, {\"description\": \"再次运行测试确认通过\", \"id\": \"5\", \"status\": \"completed\"}, {\"description\": \"更新计划并总结结果\", \"id\": \"6\", \"status\": \"completed\"}]\n\n}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3679,
+    "total_tokens": 3865,
+    "completion_tokens": 186,
+    "prompt_tokens_details": {
+      "cached_tokens": 2816,
+      "text_tokens": 3679
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 11,
+      "text_tokens": 186
+    }
+  }
+}

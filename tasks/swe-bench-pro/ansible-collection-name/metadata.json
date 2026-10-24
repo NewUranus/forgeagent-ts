@@ -1,0 +1,10 @@
+{
+  "instance_id": "instance_ansible__ansible-f327e65d11bb905ed9f15996024f857a95592629-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+  "repo": "ansible/ansible",
+  "base_commit": "f533d46572113655a0a698beab4b38671744a458",
+  "source_task_dir": "/Users/liuxingliang/W5/SWE-bench_Pro-os/v2/tasks/instance_ansible__ansible-f327e65d11bb905ed9f15996024f857a95592629-vba6da65a0f3baefda7a058ebbd0a8dcafb8512f5",
+  "dataset": "SWE-bench Pro V2",
+  "repository_source_included": false,
+  "environment_note": "Core validation can be isolated using Python standard library; official benchmark tests require the Ansible repository and its test dependencies.",
+  "instruction_sha256": "9c6523a79a781b70b7b58a9edb53a3ba37c67e0fa8918817aaaee0c3b763f8b8"
+}

@@ -1,0 +1,11 @@
+{
+  "instance_id": "instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+  "repo": "NodeBB/NodeBB",
+  "base_commit": "61d17c95e573f91ab5c65d25218451e9afd07d77",
+  "source_task_dir": "/Users/liuxingliang/W5/SWE-bench_Pro-os/v2/tasks/instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+  "dataset": "SWE-bench Pro V2",
+  "docker_image": "ghcr.io/scaleapi/swe-bench_pro-v2:instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e",
+  "repository_in_container": "/app",
+  "repository_source_included": false,
+  "instruction_sha256": "b44185ed23d58de7d62a8032484a33a0ab75537425cf87656b63994406e0a530"
+}

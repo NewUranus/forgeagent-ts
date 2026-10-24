@@ -1,0 +1,51 @@
+{
+  "id": "chatcmpl-6d6e571f-5dd1-9f89-9a8a-d4b9c3387abc",
+  "object": "chat.completion",
+  "created": 1792226146,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let me read both files to understand the current implementation and test requirements.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_ddb6fc561e314c49a24d3796",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"collection_name.py\"}"
+            },
+            "index": 0
+          },
+          {
+            "id": "call_5e180b72ae724bf79309436b",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"test_collection_name.py\"}"
+            },
+            "index": 1
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1222,
+    "total_tokens": 1297,
+    "completion_tokens": 75,
+    "prompt_tokens_details": {
+      "cached_tokens": 1152,
+      "text_tokens": 1222
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 14,
+      "text_tokens": 75
+    }
+  }
+}

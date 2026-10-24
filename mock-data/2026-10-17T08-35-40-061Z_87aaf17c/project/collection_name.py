@@ -1,0 +1,29 @@
+"""Standalone exercise adapted from SWE-bench Pro, not Ansible source."""
+import keyword
+
+
+def is_valid_collection_name(value):
+    """
+    Validates if a string is a valid collection name in the format 'namespace.name'.
+    Both namespace and name must be valid Python identifiers and not Python keywords.
+
+    Args:
+        value: The value to validate.
+
+    Returns:
+        bool: True if the value is a valid collection name, False otherwise.
+    """
+    if not isinstance(value, str):
+        return False
+    
+    parts = value.split(".")
+    if len(parts) != 2:
+        return False
+    
+    for part in parts:
+        if not part.isidentifier():
+            return False
+        if keyword.iskeyword(part):
+            return False
+            
+    return True

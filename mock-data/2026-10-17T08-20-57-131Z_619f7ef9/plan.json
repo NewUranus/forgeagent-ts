@@ -1,0 +1,35 @@
+{
+  "steps": [
+    {
+      "description": "了解项目结构和文件",
+      "id": "1",
+      "status": "completed"
+    },
+    {
+      "description": "阅读源代码和测试文件",
+      "id": "2",
+      "status": "completed"
+    },
+    {
+      "description": "运行测试，查看是否有失败",
+      "id": "3",
+      "status": "completed"
+    },
+    {
+      "description": "修复失败的测试",
+      "id": "4",
+      "status": "completed"
+    },
+    {
+      "description": "再次运行测试确认通过",
+      "id": "5",
+      "status": "completed"
+    },
+    {
+      "description": "更新计划并总结结果",
+      "id": "6",
+      "status": "completed"
+    }
+  ],
+  "updated_at": "2026-10-17T08:21:37.886Z"
+}

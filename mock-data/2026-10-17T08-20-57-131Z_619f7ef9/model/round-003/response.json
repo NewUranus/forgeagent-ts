@@ -1,0 +1,60 @@
+{
+  "id": "chatcmpl-5250d804-6f08-9f95-be12-f1f1ae73de34",
+  "object": "chat.completion",
+  "created": 1792225262,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let me read all three files to understand the project.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_636f2ea8ab124a2cb7463bd7",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"calculator.ts\"}"
+            },
+            "index": 0
+          },
+          {
+            "id": "call_8b518f7da85c4d188894a37e",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"calculator.test.ts\"}"
+            },
+            "index": 1
+          },
+          {
+            "id": "call_dff82299cf7c4d2f89136d6b",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"stats_helpers.ts\"}"
+            },
+            "index": 2
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1116,
+    "total_tokens": 1215,
+    "completion_tokens": 99,
+    "prompt_tokens_details": {
+      "cached_tokens": 512,
+      "text_tokens": 1116
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 11,
+      "text_tokens": 99
+    }
+  }
+}

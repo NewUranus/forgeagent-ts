@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-5f884934-8477-97db-9235-363e84ce3bda",
+  "object": "chat.completion",
+  "created": 1792225292,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "修复完成，现在运行测试确认是否通过",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_dbe058b62a144065a4a7c6f1",
+            "type": "function",
+            "function": {
+              "name": "run_tests",
+              "arguments": "{}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 3457,
+    "total_tokens": 3483,
+    "completion_tokens": 26,
+    "prompt_tokens_details": {
+      "cached_tokens": 1664,
+      "text_tokens": 3457
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 9,
+      "text_tokens": 26
+    }
+  }
+}

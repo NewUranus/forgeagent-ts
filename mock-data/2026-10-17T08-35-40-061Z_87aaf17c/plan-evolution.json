@@ -1,0 +1,262 @@
+[
+  {
+    "round": 1,
+    "response_file": "model/round-001/response.json",
+    "update_plan_calls": [
+      {
+        "tool_call_id": "call_65e3874ed4e748e8aa8f79fc",
+        "raw_arguments": {
+          "steps": [
+            {
+              "decription": "读取 collection_name.py 和测试文件，了解当前实现和测试要求",
+              "id": "1",
+              "status": "in_progress"
+            },
+            {
+              "decription": "运行测试，确认当前失败情况",
+              "id": "2",
+              "status": "pending"
+            },
+            {
+              "decription": "修复 is_valid_collection_name 函数",
+              "id": "3",
+              "status": "pending"
+            },
+            {
+              "decription": "再次运行测试，确认全部通过",
+              "id": "4",
+              "status": "pending"
+            },
+            {
+              "decription": "更新计划为 completed 并总结",
+              "id": "5",
+              "status": "pending"
+            }
+          ]
+        },
+        "changes": [
+          {
+            "id": "1",
+            "old_status": null,
+            "new_status": "in_progress",
+            "old_description": null,
+            "new_description": "读取 collection_name.py 和测试文件，了解当前实现和测试要求"
+          },
+          {
+            "id": "2",
+            "old_status": null,
+            "new_status": "pending",
+            "old_description": null,
+            "new_description": "运行测试，确认当前失败情况"
+          },
+          {
+            "id": "3",
+            "old_status": null,
+            "new_status": "pending",
+            "old_description": null,
+            "new_description": "修复 is_valid_collection_name 函数"
+          },
+          {
+            "id": "4",
+            "old_status": null,
+            "new_status": "pending",
+            "old_description": null,
+            "new_description": "再次运行测试，确认全部通过"
+          },
+          {
+            "id": "5",
+            "old_status": null,
+            "new_status": "pending",
+            "old_description": null,
+            "new_description": "更新计划为 completed 并总结"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "response_file": "model/round-002/response.json",
+    "update_plan_calls": []
+  },
+  {
+    "round": 3,
+    "response_file": "model/round-003/response.json",
+    "update_plan_calls": []
+  },
+  {
+    "round": 4,
+    "response_file": "model/round-004/response.json",
+    "update_plan_calls": []
+  },
+  {
+    "round": 5,
+    "response_file": "model/round-005/response.json",
+    "update_plan_calls": [
+      {
+        "tool_call_id": "call_d860256b060a49309402bf74",
+        "raw_arguments": {
+          "steps": [
+            {
+              "decription": "读取 collection_name.py 和测试文件，了解当前实现和测试要求",
+              "id": "1",
+              "status": "completed"
+            },
+            {
+              "decription": "运行测试，确认当前失败情况",
+              "id": "2",
+              "status": "completed"
+            },
+            {
+              "decription": "修复 is_valid_collection_name 函数：添加 keyword.iskeyword 检查",
+              "id": "3",
+              "status": "in_progress"
+            },
+            {
+              "decription": "再次运行测试，确认全部通过",
+              "id": "4",
+              "status": "pending"
+            },
+            {
+              "decription": "更新计划为 completed 并总结",
+              "id": "5",
+              "status": "pending"
+            }
+          ]
+        },
+        "changes": [
+          {
+            "id": "1",
+            "old_status": "in_progress",
+            "new_status": "completed",
+            "old_description": "读取 collection_name.py 和测试文件，了解当前实现和测试要求",
+            "new_description": "读取 collection_name.py 和测试文件，了解当前实现和测试要求"
+          },
+          {
+            "id": "2",
+            "old_status": "pending",
+            "new_status": "completed",
+            "old_description": "运行测试，确认当前失败情况",
+            "new_description": "运行测试，确认当前失败情况"
+          },
+          {
+            "id": "3",
+            "old_status": "pending",
+            "new_status": "in_progress",
+            "old_description": "修复 is_valid_collection_name 函数",
+            "new_description": "修复 is_valid_collection_name 函数：添加 keyword.iskeyword 检查"
+          },
+          {
+            "id": "4",
+            "old_status": "pending",
+            "new_status": "pending",
+            "old_description": "再次运行测试，确认全部通过",
+            "new_description": "再次运行测试，确认全部通过"
+          },
+          {
+            "id": "5",
+            "old_status": "pending",
+            "new_status": "pending",
+            "old_description": "更新计划为 completed 并总结",
+            "new_description": "更新计划为 completed 并总结"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "round": 6,
+    "response_file": "model/round-006/response.json",
+    "update_plan_calls": []
+  },
+  {
+    "round": 7,
+    "response_file": "model/round-007/response.json",
+    "update_plan_calls": []
+  },
+  {
+    "round": 8,
+    "response_file": "model/round-008/response.json",
+    "update_plan_calls": []
+  },
+  {
+    "round": 9,
+    "response_file": "model/round-009/response.json",
+    "update_plan_calls": [
+      {
+        "tool_call_id": "call_43be28b8ea2d466f81ad7915",
+        "raw_arguments": {
+          "steps": [
+            {
+              "decription": "读取 collection_name.py 和测试文件，了解当前实现和测试要求",
+              "id": "1",
+              "status": "completed"
+            },
+            {
+              "decription": "运行测试，确认当前失败情况",
+              "id": "2",
+              "status": "completed"
+            },
+            {
+              "decription": "修复 is_valid_collection_name 函数：添加 keyword.iskeyword 检查",
+              "id": "3",
+              "status": "completed"
+            },
+            {
+              "decription": "再次运行测试，确认全部通过",
+              "id": "4",
+              "status": "completed"
+            },
+            {
+              "decription": "更新计划为 completed 并总结",
+              "id": "5",
+              "status": "completed"
+            }
+          ]
+        },
+        "changes": [
+          {
+            "id": "1",
+            "old_status": "completed",
+            "new_status": "completed",
+            "old_description": "读取 collection_name.py 和测试文件，了解当前实现和测试要求",
+            "new_description": "读取 collection_name.py 和测试文件，了解当前实现和测试要求"
+          },
+          {
+            "id": "2",
+            "old_status": "completed",
+            "new_status": "completed",
+            "old_description": "运行测试，确认当前失败情况",
+            "new_description": "运行测试，确认当前失败情况"
+          },
+          {
+            "id": "3",
+            "old_status": "in_progress",
+            "new_status": "completed",
+            "old_description": "修复 is_valid_collection_name 函数：添加 keyword.iskeyword 检查",
+            "new_description": "修复 is_valid_collection_name 函数：添加 keyword.iskeyword 检查"
+          },
+          {
+            "id": "4",
+            "old_status": "pending",
+            "new_status": "completed",
+            "old_description": "再次运行测试，确认全部通过",
+            "new_description": "再次运行测试，确认全部通过"
+          },
+          {
+            "id": "5",
+            "old_status": "pending",
+            "new_status": "completed",
+            "old_description": "更新计划为 completed 并总结",
+            "new_description": "更新计划为 completed 并总结"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "round": 10,
+    "response_file": "model/round-010/response.json",
+    "update_plan_calls": []
+  }
+]

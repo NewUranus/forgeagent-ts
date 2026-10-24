@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+workspace/
+runs/
+.rag_cache/
+*.log
+*.bak
+.DS_Store
+rag/*.pdf
+practice/
+.pytest_cache/
+__pycache__/
+*.pyc

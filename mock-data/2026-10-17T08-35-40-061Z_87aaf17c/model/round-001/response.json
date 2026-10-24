@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-fa82869a-9f20-9253-882c-504e07700ed0",
+  "object": "chat.completion",
+  "created": 1792226140,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let me start by understanding the task:\n1. First, update_plan to create a plan\n2. Read the code and tests\n3. Run tests to confirm the issue\n4. Fix `is_valid_collection_name` in `collection_name.py`\n5. Run tests again to verify\n6. Update plan to completed\n7. Summarize results\n\nLet me begin by exploring the files and reading the relevant code.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_65e3874ed4e748e8aa8f79fc",
+            "type": "function",
+            "function": {
+              "name": "update_plan",
+              "arguments": "{\"steps\": \n[{\"decription\": \"读取 collection_name.py 和测试文件，了解当前实现和测试要求\", \"id\": \"1\", \"status\": \"in_progress\"}, {\"decription\": \"运行测试，确认当前失败情况\", \"id\": \"2\", \"status\": \"pending\"}, {\"decription\": \"修复 is_valid_collection_name 函数\", \"id\": \"3\", \"status\": \"pending\"}, {\"decription\": \"再次运行测试，确认全部通过\", \"id\": \"4\", \"status\": \"pending\"}, {\"decription\": \"更新计划为 completed 并总结\", \"id\": \"5\", \"status\": \"pending\"}]\n\n}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 854,
+    "total_tokens": 1106,
+    "completion_tokens": 252,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "text_tokens": 854
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 88,
+      "text_tokens": 252
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-c8ddf49e-c04d-9998-8177-9b0b8c8ce422",
+  "object": "chat.completion",
+  "created": 1792226185,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let\n",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_43be28b8ea2d466f81ad7915",
+            "type": "function",
+            "function": {
+              "name": "update_plan",
+              "arguments": "{\"steps\": \n[{\"decription\": \"读取 collection_name.py 和测试文件，了解当前实现和测试要求\", \"id\": \"1\", \"status\": \"completed\"}, {\"decription\": \"运行测试，确认当前失败情况\", \"id\": \"2\", \"status\": \"completed\"}, {\"decription\": \"修复 is_valid_collection_name 函数：添加 keyword.iskeyword 检查\", \"id\": \"3\", \"status\": \"completed\"}, {\"decription\": \"再次运行测试，确认全部通过\", \"id\": \"4\", \"status\": \"completed\"}, {\"decription\": \"更新计划为 completed 并总结\", \"id\": \"5\", \"status\": \"completed\"}]\n\n}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 12221,
+    "total_tokens": 12392,
+    "completion_tokens": 171,
+    "prompt_tokens_details": {
+      "cached_tokens": 11520,
+      "text_tokens": 12221
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 1,
+      "text_tokens": 171
+    }
+  }
+}

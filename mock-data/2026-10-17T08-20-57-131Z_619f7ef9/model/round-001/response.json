@@ -1,0 +1,42 @@
+{
+  "id": "chatcmpl-642dc653-da8a-9e85-910c-68ba75067766",
+  "object": "chat.completion",
+  "created": 1792225257,
+  "model": "qwen3.7-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let me start by understanding the project structure. I'll list the files first, then read the relevant files to understand the project.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_124bba113a9c4d37b1b77504",
+            "type": "function",
+            "function": {
+              "name": "update_plan",
+              "arguments": "{\"steps\": \n[{\"id\": \"1\", \"description\": \"了解项目结构和文件\", \"status\": \"in_progress\"}, {\"id\": \"2\", \"description\": \"阅读源代码和测试文件\", \"status\": \"pending\"}, {\"id\": \"3\", \"description\": \"运行测试，查看是否有失败\", \"status\": \"pending\"}, {\"id\": \"4\", \"description\": \"修复失败的测试\", \"status\": \"pending\"}, {\"id\": \"5\", \"description\": \"再次运行测试确认通过\", \"status\": \"pending\"}, {\"id\": \"6\", \"description\": \"更新计划并总结结果\", \"status\": \"pending\"}]\n\n}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 758,
+    "total_tokens": 945,
+    "completion_tokens": 187,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "text_tokens": 758
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 26,
+      "text_tokens": 187
+    }
+  }
+}
