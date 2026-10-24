@@ -10,6 +10,8 @@ export interface TestResult {
   time_out: boolean;
   stdout: string;
   stderr: string;
+  // "partial" when only selected tests ran; such runs never count as final verification.
+  scope?: "full" | "partial";
 }
 export interface ToolCall {
   id: string;

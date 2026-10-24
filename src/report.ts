@@ -74,7 +74,7 @@ export function summarizeTest(result: TestResult) {
 
 export type TestPhase = "baseline" | "agent" | "apply";
 export type TestRun = ReturnType<typeof summarizeTest> & {
-  phase: TestPhase; round: number | null; revision: number; started_at: string; duration_ms: number;
+  phase: TestPhase; scope: "full" | "partial"; round: number | null; revision: number; started_at: string; duration_ms: number;
 };
 
 export class TestHistory {
@@ -83,7 +83,7 @@ export class TestHistory {
   constructor(private taskDir: string) {}
 
   async record(phase: TestPhase, round: number | null, result: TestResult, startedAt: string, start: number) {
-    const run = { phase, round, revision: this.revision, started_at: startedAt,
+    const run = { phase, scope: result.scope ?? "full", round, revision: this.revision, started_at: startedAt,
       duration_ms: Math.round(performance.now() - start), ...summarizeTest(result) };
     this.runs.push(run);
     await fs.appendFile(path.join(this.taskDir, "tests.jsonl"), JSON.stringify({ ...run, stdout: result.stdout, stderr: result.stderr }) + "\n");
@@ -91,7 +91,8 @@ export class TestHistory {
 
   summary() {
     const baseline = this.runs.find(run => run.phase === "baseline") ?? null;
-    const latest = this.runs.filter(run => run.phase !== "baseline").at(-1) ?? null;
+    // Partial runs stay in `runs` but never stand in for the full-suite comparison.
+    const latest = this.runs.filter(run => run.phase !== "baseline" && run.scope === "full").at(-1) ?? null;
     const current = latest?.revision === this.revision;
     return {
       baseline, latest, latest_is_current: current,

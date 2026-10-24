@@ -34,7 +34,7 @@ test('working copy, tools and six calculator cases', async t => {
   await fs.symlink('/tmp', path.join(root, 'escape'));
   await assert.rejects(projectPath(root, 'escape/file', true), /符号链接/);
   await assert.rejects(executeTool(root, 'write_file', { relative_path: 'calculator.test.ts', content: '' }), /测试/);
-  assert.ok((await executeTool(root, 'search_code', { keyword: 'average' }) as any[]).length);
+  assert.ok((await executeTool(root, 'search_code', { keyword: 'average' }) as any).matches.length);
   await executeTool(root, 'update_plan', { steps: [{ id: 'step_1', description: 'inspect', status: 'in_progress' }] });
   await executeTool(root, 'update_plan', { steps: [{ id: 'step_1', description: 'inspect', status: 'completed' }] });
   assert.equal((await fs.readFile(path.join(taskDir, 'plans.jsonl'), 'utf8')).trim().split('\n').length, 2);
