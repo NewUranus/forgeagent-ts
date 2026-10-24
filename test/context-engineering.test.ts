@@ -32,6 +32,7 @@ function env(t: any, values: Record<string, string>) {
 const apiEnv = (t: any) => env(t, {
   MODEL_PROVIDER: "CTX_TEST", CTX_TEST_API_KEY: "test-only", CTX_TEST_BASE_URL: "https://example.invalid/v1",
   CTX_TEST_MODEL: "ctx-test", CONTEXT_WINDOW_TOKENS: "32768", CONTEXT_OUTPUT_RESERVE_TOKENS: "256",
+  MODEL_RETRY_BASE_MS: "1", MODEL_RETRY_MAX_MS: "5",
 });
 const reply = (message: Message, usage?: object) =>
   new Response(JSON.stringify({ choices: [{ message }], ...(usage ? { usage } : {}) }), { headers: { "Content-Type": "application/json" } });
@@ -206,6 +207,7 @@ test("a failed llm summary falls back to the rule summary instead of failing the
   assert.equal(requests.length, 3);
   assert.match(requests[2].messages[4].content, /以下由运行记录自动生成/);
   assert.equal(report.statistics.context.llm_summary_errors, 1);
+  assert.equal(report.statistics.model_requests.retries, 3, "500 先按重试策略重试 3 次，仍失败才回退");
   assert.notEqual(report.termination.reason, "model_error");
 });
 

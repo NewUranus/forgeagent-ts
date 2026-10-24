@@ -10,6 +10,8 @@ export interface AgentFeatures {
   repoMap: boolean;
   /** Add AGENTS.md / CLAUDE.md from the project root to the fixed context, as data. */
   projectNotes: boolean;
+  /** Warn once, then stop, when the agent repeats calls, test results or failed completion checks. */
+  loopGuard: boolean;
 }
 
 export const defaultFeatures: AgentFeatures = {
@@ -18,6 +20,7 @@ export const defaultFeatures: AgentFeatures = {
   summary: "rule",
   repoMap: true,
   projectNotes: true,
+  loopGuard: true,
 };
 
 const onOff = (name: string, value: string) => {
@@ -33,7 +36,7 @@ const oneOf = <T extends string>(name: string, value: string, allowed: readonly 
 
 /** Parse CLI strings; options left undefined keep their defaults. */
 export function parseFeatures(values: {
-  context?: string; truncate?: string; summary?: string; "repo-map"?: string; "project-notes"?: string;
+  context?: string; truncate?: string; summary?: string; "repo-map"?: string; "project-notes"?: string; "loop-guard"?: string;
 }): Partial<AgentFeatures> {
   const features: Partial<AgentFeatures> = {};
   if (values.context !== undefined) features.context = oneOf("context", values.context, ["window", "none"] as const);
@@ -41,5 +44,6 @@ export function parseFeatures(values: {
   if (values.summary !== undefined) features.summary = oneOf("summary", values.summary, ["none", "rule", "llm"] as const);
   if (values["repo-map"] !== undefined) features.repoMap = onOff("repo-map", values["repo-map"]);
   if (values["project-notes"] !== undefined) features.projectNotes = onOff("project-notes", values["project-notes"]);
+  if (values["loop-guard"] !== undefined) features.loopGuard = onOff("loop-guard", values["loop-guard"]);
   return features;
 }

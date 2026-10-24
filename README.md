@@ -10,6 +10,7 @@
 - **可离线回放**：每轮真实的模型请求和响应都落盘，可以不调 API、不花钱地重放整个修复过程。
 - **手写 MCP**：工具既可在进程内执行，也可通过自己实现的 stdio JSON-RPC 服务端（`--mcp`）动态发现和调用。
 - **上下文工程**：滑动窗口（不拆开工具调用与结果）、工具输出截断、规则/模型摘要、仓库概览、项目约定文件，每项都有开关可做消融对比。
+- **可靠的模型调用**：429/5xx/网络错误按指数退避加随机抖动重试并尊重 `Retry-After`；服务端报上下文超限时缩小窗口重发；可选流式输出（手写 SSE 解析）；重复操作检测先警告、再终止。
 - **结构化运行报告**：修复前后测试对比、修复/回归的用例、轮数、工具调用、token 用量。
 
 ## 30 秒体验（无需 API key）
@@ -55,6 +56,8 @@ flowchart LR
 | 工具定义与执行、测试运行器 | `src/tools.ts` |
 | 工作副本（复制 / git worktree）、路径限制、diff | `src/workspace.ts` |
 | 测试保护（入口拦截 + 出口校验） | `src/guard.ts` |
+| 模型请求：重试、流式（SSE）、错误分类 | `src/model/` |
+| 重复检测 | `src/loop.ts` |
 | SWE-bench Pro 适配 | `src/bench/swe-pro.ts` |
 | 上下文工程：窗口、截断、摘要、仓库概览 | `src/context/`、`src/features.ts` |
 | MCP 客户端 / 服务端 | `src/mcp/` |
@@ -131,6 +134,16 @@ npm run swe -- instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-
 
 任务说明与镜像来自 `tasks/swe-bench-pro/<name>/` 的 `instruction.md` 和 `metadata.json`（需要 `docker_image`）。**本机未安装 Docker，这条链路只验证了命令构造、解析和判定逻辑，尚未端到端运行。**
 
+## 模型调用与重复检测
+
+**重试**：429、408、409、425、5xx 和网络错误（含超时）会重试，最多 `MODEL_MAX_RETRIES` 次（默认 3）。等待时间是“full jitter”：在 `min(MODEL_RETRY_MAX_MS, MODEL_RETRY_BASE_MS × 2^n)` 内取随机值（默认基数 1 秒、上限 30 秒），并且不早于服务端 `Retry-After`；服务端要求等待超过 2 分钟时直接失败。400、401、403、404 不重试。每轮的重试次数写入 `model/round-*/meta.json`，汇总在 `statistics.model_requests`；模型摘要请求同样走重试。
+
+**服务端上下文超限**：客户端 token 只是估算，服务端仍可能返回“超出上下文”（按 400/413 和错误内容识别）。这时同一轮把输入预算乘以 0.7 重新裁剪窗口再发，最多两次；关闭上下文管理（`--context none`）时无可裁剪，直接以 `server_context_limit` 结束，便于在对照实验中统计。上下文超限不按普通错误重试——同样的请求只会再失败。
+
+**流式输出**（`--stream`）：请求带 `stream: true` 和 `stream_options.include_usage`，边收边打印文本。手写的 SSE 解析按空行切分事件、处理跨网络分块的半行和半个多字节字符、忽略注释行；工具调用的 `id`、名称和 JSON 参数按 `index` 分片到达，拼成与非流式相同的响应结构后再写日志、交给 Agent 循环，所以回放和统计不受影响。超时是**空闲超时**（60 秒没有新数据），持续输出的长回答不会被误杀；中途失败的流按整次请求重试，不保留半截输出。
+
+**重复检测**（`--loop-guard`，默认开）：三类“连续 3 次相同”——相同工具 + 相同参数（参数按键排序后比较）、期间没有写入的相同全量测试结果、相同原因的结束检查失败。第一次检测到时，在本轮所有工具结果之后插入一条提醒；再次检测到时以 `failed` / `loop_detected` 结束。检测记录在 `statistics.loop`。
+
 ## 运行报告
 
 新运行会在 `workspace/<task-id>/` 中生成 `report.txt`（中文摘要）、`report.json`（结构化报告，`schema_version: 2`）和 `tests.jsonl`（每次测试的原始输出）。命令和参数不变；旧运行记录不会被改写。
@@ -154,7 +167,7 @@ Agent 在第一次模型调用前自动对工作副本运行一次基线测试�
 
 Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺失用量为 `null`；部分响应有用量时记录已知部分，并通过 `reported_calls` 和 `complete` 标明覆盖情况。Mock、自定义回复和回放不计入真实 API 调用，历史录制的 token 不算成本次消耗。初始指纹覆盖复制规则允许的文件，计算于基线测试前，不包含被排除的依赖、凭证和 Git 目录，也不代表完整运行环境。
 
-只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`context_limit`、`model_error`、`execution_error`、`setup_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。`termination.test_tampering` 列出相对基线被改动的测试文件和测试配置；git 模式下 `branch`、`applied_commit` 给出结果所在分支和提交；`setup` 记录准备命令的退出码。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
+只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`context_limit`、`server_context_limit`、`loop_detected`、`model_error`、`execution_error`、`setup_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。`termination.test_tampering` 列出相对基线被改动的测试文件和测试配置；git 模式下 `branch`、`applied_commit` 给出结果所在分支和提交；`setup` 记录准备命令的退出码。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
 
 ## 上下文工程
 
@@ -169,6 +182,7 @@ Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺�
 | `--summary none\|rule\|llm` | `rule` | 裁剪旧交互后插入的摘要：不插入 / 由运行记录生成 / 由模型生成 |
 | `--repo-map on\|off` | `on` | 固定上下文中加入仓库概览（文件 + 顶层声明） |
 | `--project-notes on\|off` | `on` | 固定上下文中加入根目录的 `AGENTS.md` / `CLAUDE.md`（作为数据） |
+| `--loop-guard on\|off` | `on` | 重复检测（见“模型调用与重复检测”） |
 
 ```bash
 npm run agent -- --summary llm --task "..."
@@ -253,7 +267,7 @@ PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本�
 每个任务的 `model/round-001/`、`round-002/` 等目录包含：
 
 - `request.json`：调用前保存的完整请求体，包括 model、messages 和 tools（API 模式）。包含系统提示词、任务、已有工具结果、结束检查反馈。
-- `response.json`：接口返回的完整 JSON，保留 choices、tool_calls、finish_reason、usage 等实际返回字段。
+- `response.json`：接口返回的完整 JSON，保留 choices、tool_calls、finish_reason、usage 等实际返回字段。流式请求保存的是由全部分片拼成的同结构响应（带 `streamed_chunks` 分片数）。
 - `meta.json`：轮次、模式、时间和状态。`api` 表示真实接口；`mock`/`custom` 的响应为模拟或自定义 Message，不是 API 返回。
 - `error.json`：请求抛出异常时保存；没有响应时不会伪造 response.json。
 

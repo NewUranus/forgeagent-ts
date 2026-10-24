@@ -1,6 +1,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { ROOT, modelConfig, postJson, contextConfig } from "./config.js";
+import { ROOT, modelConfig, contextConfig } from "./config.js";
+import { chatCompletion } from "./model/client.js";
+import { isContextOverflow, retryPolicy } from "./model/retry.js";
+import { LoopDetector } from "./loop.js";
 import {
   commitWorkspace,
   createWorkspace,
@@ -14,7 +17,7 @@ import type { Message, TaskStatus, TestResult } from "./types.js";
 import { MCPClient } from "./mcp/client.js";
 import { logModelRound } from "./model-log.js";
 import { loadReplay } from "./replay.js";
-import { fingerprint, readPlanProgress, TestHistory, modelStatistics, changeSummary, renderReport } from "./report.js";
+import { fingerprint, readPlanProgress, TestHistory, modelStatistics, changeSummary, renderReport, summarizeTest } from "./report.js";
 import { buildSlidingWindow, ContextBudgetExceededError, estimateRequestToken, splitGroups } from "./context/context.js";
 import { shrinkForContext } from "./context/truncate.js";
 import { buildRepoMap, loadProjectNotes } from "./context/project.js";
@@ -38,6 +41,8 @@ export interface AgentOptions {
   setupCommand?: string;
   /** Custom test command and/or Docker sandbox, used by baseline, tools and apply validation alike. */
   testConfig?: TestConfig;
+  /** Stream model output (SSE) and print text as it arrives. */
+  stream?: boolean;
 }
 const mock = (round: number): Message => {
   const operations = [
@@ -137,6 +142,21 @@ export async function runAgent(options: AgentOptions = {}) {
   const digest = { readFiles: new Set<string>(), editedFiles: new Map<string, number>() };
   const llmSummary = { text: null as string | null, groups: 0, calls: 0, errors: 0 };
   const contextStats = { max_estimated_tokens: 0, rounds_with_dropping: 0, max_dropped_groups: 0, summarized_rounds: 0 };
+  const modelCalls = { retries: 0, errors: [] as string[], overflowRetries: 0 };
+  const loop = new LoopDetector();
+  const loopStats = { warnings: 0, detections: [] as string[] };
+  // Warn once with what repeated; on the next detection stop the run. Returns true to stop.
+  const onLoop = (hits: string[]) => {
+    if (!hits.length || !features.loopGuard) return false;
+    loopStats.detections.push(...hits);
+    if (loopStats.warnings > 0) return true;
+    loopStats.warnings++;
+    messages.push({ role: "user", content: [
+      "检测到重复且没有进展的操作：", ...hits.map((hit) => `- ${hit}`),
+      "请先分析之前的做法为什么没有效果，再换一种思路；如果继续重复，任务将被终止。",
+    ].join("\n") });
+    return false;
+  };
   let status: TaskStatus = "running",
     verified = false;
   let mcp: MCPClient | undefined;
@@ -145,6 +165,8 @@ export async function runAgent(options: AgentOptions = {}) {
     throw new Error("maxRounds 必须为正整数");
   const useMock = options.mock ?? process.env.USE_LLM === "false";
   const mode = replay ? "replay" : options.reply ? "custom" : useMock ? "mock" : "api";
+  // Retries only matter for real API calls; read the policy there so other modes need no settings.
+  const policy = mode === "api" ? retryPolicy() : { retries: 0, baseMs: 0, maxMs: 0 };
   let reason = "round_limit", errorMessage: string | null = null;
   let toolCalls = 0, successfulWrites = 0, toolErrors = 0;
   let applied = false;
@@ -204,62 +226,83 @@ export async function runAgent(options: AgentOptions = {}) {
         );
       } else {
         const { key, base, model } = modelConfig();
-        let requestMessages: Message[] = messages;
-        if (features.context === "none") {
-          const estimated = estimateRequestToken(messages, toolSchemas);
-          contextStats.max_estimated_tokens = Math.max(contextStats.max_estimated_tokens, estimated);
-          console.log(`上下文：${estimated} tokens（估算），未启用上下文管理`);
-        } else {
-          const { inputBudget } = contextConfig();
-          const testSummary = testHistory.summary();
-          const ruleDigest: RunDigest = {
-            ...digest,
-            latestTest: testSummary.latest,
-            latestTestIsCurrent: testSummary.latest_is_current,
-            partialTestRuns: testHistory.runs.filter((run) => run.scope === "partial").length,
-            plan: features.summary === "none" ? null : await readPlanSteps(workspace.taskDir),
-          };
-          // The model-written summary is used only while it covers every dropped group; otherwise fall back to the rule summary.
-          const summaryFor = (dropped: number) =>
-            features.summary === "none" ? null
-              : features.summary === "llm" && llmSummary.text && dropped <= llmSummary.groups
-                ? llmSummaryHeader(dropped) + llmSummary.text
-                : ruleSummary(dropped, ruleDigest);
-          let context = buildSlidingWindow(messages, toolSchemas, inputBudget, { summary: summaryFor });
-          // Adding a summary can push out one more group, so fold newly dropped groups in a few times at most.
-          for (let attempt = 0; features.summary === "llm" && context.droppedGroups > llmSummary.groups && attempt < 3; attempt++) {
-            const { groups } = splitGroups(messages);
-            const summaryRequest = llmSummaryRequest(model, llmSummary.text, groups.slice(llmSummary.groups, context.droppedGroups));
-            try {
-              llmSummary.calls++;
-              const response = await logModelRound(
-                workspace.taskDir, llmSummary.calls, "api", summaryRequest,
-                () => postJson(base, "chat/completions", summaryRequest, key), "summary",
-              );
-              const text = response.choices?.[0]?.message?.content;
-              if (typeof text !== "string" || !text.trim()) throw new Error("摘要响应为空");
-              llmSummary.text = text.trim();
-              llmSummary.groups = context.droppedGroups;
-            } catch (error) {
-              llmSummary.errors++;
-              console.error(`模型摘要失败，改用规则摘要：${String(error)}`);
-              break;
+        const retriesBefore = modelCalls.retries;
+        let response: any;
+        for (let overflow = 0, budgetScale = 1; ; overflow++, budgetScale *= 0.7) {
+          let requestMessages: Message[] = messages;
+          if (features.context === "none") {
+            const estimated = estimateRequestToken(messages, toolSchemas);
+            contextStats.max_estimated_tokens = Math.max(contextStats.max_estimated_tokens, estimated);
+            console.log(`上下文：${estimated} tokens（估算），未启用上下文管理`);
+          } else {
+            // After a server-side overflow the client estimate was too low: retry with a smaller budget.
+            const inputBudget = Math.floor(contextConfig().inputBudget * budgetScale);
+            const testSummary = testHistory.summary();
+            const ruleDigest: RunDigest = {
+              ...digest,
+              latestTest: testSummary.latest,
+              latestTestIsCurrent: testSummary.latest_is_current,
+              partialTestRuns: testHistory.runs.filter((run) => run.scope === "partial").length,
+              plan: features.summary === "none" ? null : await readPlanSteps(workspace.taskDir),
+            };
+            // The model-written summary is used only while it covers every dropped group; otherwise fall back to the rule summary.
+            const summaryFor = (dropped: number) =>
+              features.summary === "none" ? null
+                : features.summary === "llm" && llmSummary.text && dropped <= llmSummary.groups
+                  ? llmSummaryHeader(dropped) + llmSummary.text
+                  : ruleSummary(dropped, ruleDigest);
+            let context = buildSlidingWindow(messages, toolSchemas, inputBudget, { summary: summaryFor });
+            // Adding a summary can push out one more group, so fold newly dropped groups in a few times at most.
+            for (let attempt = 0; features.summary === "llm" && context.droppedGroups > llmSummary.groups && attempt < 3; attempt++) {
+              const { groups } = splitGroups(messages);
+              const summaryRequest = llmSummaryRequest(model, llmSummary.text, groups.slice(llmSummary.groups, context.droppedGroups));
+              try {
+                llmSummary.calls++;
+                const response = await logModelRound(
+                  workspace.taskDir, llmSummary.calls, "api", summaryRequest,
+                  () => chatCompletion(base, key, summaryRequest, { policy, record: modelCalls }), "summary",
+                );
+                const text = response.choices?.[0]?.message?.content;
+                if (typeof text !== "string" || !text.trim()) throw new Error("摘要响应为空");
+                llmSummary.text = text.trim();
+                llmSummary.groups = context.droppedGroups;
+              } catch (error) {
+                llmSummary.errors++;
+                console.error(`模型摘要失败，改用规则摘要：${String(error)}`);
+                break;
+              }
+              context = buildSlidingWindow(messages, toolSchemas, inputBudget, { summary: summaryFor });
             }
-            context = buildSlidingWindow(messages, toolSchemas, inputBudget, { summary: summaryFor });
+            requestMessages = context.messages;
+            contextStats.max_estimated_tokens = Math.max(contextStats.max_estimated_tokens, context.estimatedTokens);
+            contextStats.max_dropped_groups = Math.max(contextStats.max_dropped_groups, context.droppedGroups);
+            if (context.droppedGroups) contextStats.rounds_with_dropping++;
+            if (context.summarized) contextStats.summarized_rounds++;
+            console.log(`上下文：${context.estimatedTokens}/${inputBudget} tokens（估算），本次省略 ${context.droppedGroups} 组旧交互${context.summarized ? "，已插入摘要" : ""}`);
           }
-          requestMessages = context.messages;
-          contextStats.max_estimated_tokens = Math.max(contextStats.max_estimated_tokens, context.estimatedTokens);
-          contextStats.max_dropped_groups = Math.max(contextStats.max_dropped_groups, context.droppedGroups);
-          if (context.droppedGroups) contextStats.rounds_with_dropping++;
-          if (context.summarized) contextStats.summarized_rounds++;
-          console.log(`上下文：${context.estimatedTokens}/${inputBudget} tokens（估算），本次省略 ${context.droppedGroups} 组旧交互${context.summarized ? "，已插入摘要" : ""}`);
-        }
-        const request = { model, messages: requestMessages, tools: toolSchemas };
+          const request = { model, messages: requestMessages, tools: toolSchemas,
+            ...(options.stream ? { stream: true, stream_options: { include_usage: true } } : {}) };
 
-        const response = await logModelRound(
-          workspace.taskDir, round + 1, "api", request,
-          () => postJson(base, "chat/completions", request, key),
-        );
+          try {
+            response = await logModelRound(
+              workspace.taskDir, round + 1, "api", request,
+              () => chatCompletion(base, key, request, { stream: options.stream, policy, record: modelCalls,
+                onText: (text) => process.stdout.write(text) }),
+              "round",
+              () => ({ retries: modelCalls.retries - retriesBefore, context_overflow_retries: overflow }),
+            );
+            break;
+          } catch (error) {
+            // Only a smaller request can succeed; with context management off there is nothing to shrink.
+            if (!isContextOverflow(error)) throw error;
+            if (features.context === "none" || overflow >= 2) {
+              reason = "server_context_limit";
+              throw error;
+            }
+            modelCalls.overflowRetries++;
+            console.error(`服务端报告上下文超限，缩小预算后重发（第 ${overflow + 1} 次）`);
+          }
+        }
         const raw = response.choices?.[0]?.message;
         if (!raw) throw new Error("模型响应缺少 message");
         message = {
@@ -287,6 +330,7 @@ export async function runAgent(options: AgentOptions = {}) {
         if (tampering.length) issues.push(...tampering, "测试文件和测试配置必须保持原样，请撤销上述改动。");
 
         if (issues.length > 0) {
+          const repeated = loop.recordFailedCheck(issues.join("|"));
           messages.push({
             role: "user",
             content: [
@@ -296,6 +340,7 @@ export async function runAgent(options: AgentOptions = {}) {
               "不要为了结束任务而直接把未执行的步骤标记为 completed。",
             ].join("\n"),
           });
+          if (onLoop(repeated ? [repeated] : [])) { status = "failed"; reason = "loop_detected"; break; }
           continue;
         }
 
@@ -303,8 +348,11 @@ export async function runAgent(options: AgentOptions = {}) {
         reason = "completed";
         break;
       }
+      const loopHits: string[] = [];
       for (const call of message.tool_calls) {
         toolCalls++;
+        const repeatedCall = loop.recordCall(call.function.name, call.function.arguments);
+        if (repeatedCall) loopHits.push(repeatedCall);
         const started_at = new Date().toISOString(),
           start = performance.now();
         let output: { ok: boolean; result?: unknown; error?: string };
@@ -330,7 +378,10 @@ export async function runAgent(options: AgentOptions = {}) {
                 args as Record<string, unknown>,
                 { testConfig },
               );
-          if (writeTools.has(call.function.name)) successfulWrites++;
+          if (writeTools.has(call.function.name)) {
+            successfulWrites++;
+            loop.recordWrite();
+          }
           const target = (args as Record<string, unknown>).relative_path;
           if (typeof target === "string") {
             if (call.function.name === "read_file") digest.readFiles.add(target);
@@ -353,7 +404,14 @@ export async function runAgent(options: AgentOptions = {}) {
             testResult = { exit_code: null, time_out: false, stdout: "", stderr: String(error), scope: selected ? "partial" : "full" };
           }
         }
-        if (testResult) await testHistory.record("agent", round + 1, testResult, started_at, start);
+        if (testResult) {
+          await testHistory.record("agent", round + 1, testResult, started_at, start);
+          if (testResult.scope !== "partial") {
+            const summary = summarizeTest(testResult);
+            const repeatedTest = loop.recordTest(JSON.stringify([summary.status, summary.counts, [...summary.failed_test_names].sort()]));
+            if (repeatedTest) loopHits.push(repeatedTest);
+          }
+        }
         await fs.appendFile(
           path.join(workspace.taskDir, "trace.jsonl"),
           JSON.stringify({
@@ -377,12 +435,14 @@ export async function runAgent(options: AgentOptions = {}) {
           `${call.function.name}: ${output.ok ? "完成" : output.error}`,
         );
       }
+      // After all results of this turn, so the warning never splits a call from its result.
+      if (onLoop(loopHits)) { status = "failed"; reason = "loop_detected"; break; }
     }
     if (status === "running") { status = "limit_reached"; reason = "round_limit"; }
   } catch (error) {
     status = "error";
     if (error instanceof ContextBudgetExceededError) reason = "context_limit";
-    else if (reason !== "model_error" && reason !== "setup_error") reason = "execution_error";
+    else if (!["model_error", "setup_error", "server_context_limit"].includes(reason)) reason = "execution_error";
     errorMessage = String(error);
     await fs.writeFile(
       path.join(workspace.taskDir, "error.txt"),
@@ -473,6 +533,8 @@ export async function runAgent(options: AgentOptions = {}) {
       model, tool_calls: toolCalls, tool_errors: toolErrors, successful_writes: successfulWrites, test_runs: testHistory.runs.length,
       // Only API runs build a request window; other modes leave these at zero.
       context: { ...contextStats, llm_summary_calls: llmSummary.calls, llm_summary_errors: llmSummary.errors },
+      model_requests: { retries: modelCalls.retries, context_overflow_retries: modelCalls.overflowRetries, retry_errors: modelCalls.errors.slice(-5) },
+      loop: { guard: features.loopGuard, warnings: loopStats.warnings, detections: loopStats.detections },
     },
     tests: testHistory.summary(),
     changes: changeSummary(diff.changes),

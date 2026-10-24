@@ -54,6 +54,31 @@ export async function postJson(
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(60000),
   });
-  if (!response.ok) throw new Error(`API 请求失败：HTTP ${response.status}`);
+  if (!response.ok) throw await ApiError.from(response);
   return response.json();
+}
+
+/** A non-2xx API response: keeps what retry and overflow handling need to decide. */
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: string,
+    readonly retryAfterMs: number | null,
+  ) {
+    super(`API 请求失败：HTTP ${status}${body ? `：${body.slice(0, 500)}` : ""}`);
+    this.name = "ApiError";
+  }
+
+  static async from(response: Response) {
+    const body = await response.text().catch(() => "");
+    return new ApiError(response.status, body, parseRetryAfter(response.headers.get("retry-after")));
+  }
+}
+
+/** Retry-After is either delay seconds or an HTTP date. */
+export function parseRetryAfter(value: string | null, now = Date.now()): number | null {
+  if (!value) return null;
+  if (/^\d+(\.\d+)?$/.test(value.trim())) return Math.round(Number(value) * 1000);
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? null : Math.max(0, date - now);
 }

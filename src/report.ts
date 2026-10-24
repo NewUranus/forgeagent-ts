@@ -171,7 +171,9 @@ export function renderReport(report: {
   timing: { started_at: string; ended_at: string; duration_ms: number };
   termination: { reason: string; error: string | null; verified: boolean; plan: Awaited<ReturnType<typeof readPlanProgress>> };
   statistics: { model: Awaited<ReturnType<typeof modelStatistics>>; tool_calls: number; successful_writes: number; test_runs: number;
-    context?: { max_estimated_tokens: number; rounds_with_dropping: number; max_dropped_groups: number; summarized_rounds: number; llm_summary_calls: number; llm_summary_errors: number } };
+    context?: { max_estimated_tokens: number; rounds_with_dropping: number; max_dropped_groups: number; summarized_rounds: number; llm_summary_calls: number; llm_summary_errors: number };
+    model_requests?: { retries: number; context_overflow_retries: number };
+    loop?: { guard: boolean; warnings: number; detections: string[] } };
   tests: ReturnType<TestHistory["summary"]>; changes: ReturnType<typeof changeSummary>;
 }) {
   const testText = (test: TestRun | null) => !test ? "未执行" : `${test.status}；通过计数 ${test.counts.passed ?? "未知"}，失败计数 ${test.counts.failed ?? "未知"}，子测试通过 ${test.counts.subtests_passed ?? "未知"}${test.failed_subtest_names.length ? `；已识别失败子测试 ${test.failed_subtest_names.length} 个` : ""}`;
@@ -192,6 +194,9 @@ export function renderReport(report: {
     `最终修改后验证：${report.termination.verified ? "通过" : "未通过或未执行"}`, "",
     `模型轮次：${model.rounds}；真实 API 调用：${model.api_calls}；工具调用：${report.statistics.tool_calls}`,
     `成功写入：${report.statistics.successful_writes}；测试执行：${report.statistics.test_runs}（含基线和回写验证）`,
+    ...(report.statistics.model_requests?.retries || report.statistics.model_requests?.context_overflow_retries
+      ? [`模型请求：重试 ${report.statistics.model_requests.retries} 次；服务端上下文超限后缩小重发 ${report.statistics.model_requests.context_overflow_retries} 次`] : []),
+    ...(report.statistics.loop?.detections.length ? [`重复检测：${report.statistics.loop.detections.join("；")}`] : []),
     ...(report.statistics.context?.max_estimated_tokens ? [`上下文：单轮最大估算 ${report.statistics.context.max_estimated_tokens} tokens；裁剪 ${report.statistics.context.rounds_with_dropping} 轮（最多省略 ${report.statistics.context.max_dropped_groups} 组）；插入摘要 ${report.statistics.context.summarized_rounds} 轮；模型摘要调用 ${report.statistics.context.llm_summary_calls} 次，失败 ${report.statistics.context.llm_summary_errors} 次`] : []),
     `Token：输入 ${model.usage.prompt_tokens ?? "未知/不适用"} / 输出 ${model.usage.completion_tokens ?? "未知/不适用"} / 总计 ${model.usage.total_tokens ?? "未知/不适用"}；用量完整：${model.usage.complete ? "是" : "否/不适用"}`,
     `改动：${report.changes.file_count} 个文件，+${report.changes.added_lines} / -${report.changes.deleted_lines} 行`,

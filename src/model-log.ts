@@ -9,6 +9,7 @@ export async function logModelRound<T>(
   request: unknown,
   invoke: () => Promise<T>,
   kind: "round" | "summary" = "round",
+  extraMeta: () => Record<string, unknown> = () => ({}),
 ): Promise<T> {
   // Summary calls live in summary-NNN so replay and round statistics only see agent turns.
   const dir = path.join(taskDir, "model", `${kind}-${String(round).padStart(3, "0")}`);
@@ -17,6 +18,8 @@ export async function logModelRound<T>(
     fs.writeFile(path.join(dir, name), JSON.stringify(value, null, 2) + "\n");
   const startedAt = new Date().toISOString();
   const start = performance.now();
+  // A round re-sent after a context overflow overwrites its request; drop the earlier failure.
+  await fs.rm(path.join(dir, "error.json"), { force: true });
   await save("request.json", request);
   await save("meta.json", { round, mode, started_at: startedAt, status: "pending" });
   const label = kind === "round" ? `模型第 ${round} 轮` : `摘要第 ${round} 次`;
@@ -25,12 +28,12 @@ export async function logModelRound<T>(
     const response = await invoke();
     // Save the untouched API JSON before extracting choices[0].message.
     await save("response.json", response);
-    await save("meta.json", { round, mode, started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - start), status: "completed" });
+    await save("meta.json", { round, mode, started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - start), status: "completed", ...extraMeta() });
     console.log(`[${label}] 返回：${path.join(dir, "response.json")}`);
     return response;
   } catch (error) {
     await save("error.json", { name: error instanceof Error ? error.name : "Error", message: String(error) });
-    await save("meta.json", { round, mode, started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - start), status: "error" });
+    await save("meta.json", { round, mode, started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - start), status: "error", ...extraMeta() });
     console.error(`[${label}] 错误：${path.join(dir, "error.json")}`);
     throw error;
   }
