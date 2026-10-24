@@ -11,6 +11,7 @@
 - **手写 MCP**：工具既可在进程内执行，也可通过自己实现的 stdio JSON-RPC 服务端（`--mcp`）动态发现和调用。
 - **上下文工程**：滑动窗口（不拆开工具调用与结果）、工具输出截断、规则/模型摘要、仓库概览、项目约定文件，每项都有开关可做消融对比。
 - **可靠的模型调用**：429/5xx/网络错误按指数退避加随机抖动重试并尊重 `Retry-After`；服务端报上下文超限时缩小窗口重发；可选流式输出（手写 SSE 解析）；重复操作检测先警告、再终止。
+- **文档检索（RAG）**：`search_docs` 工具对项目文档做 BM25 检索，配置向量索引时与向量检索用 RRF 融合；只在有文档时提供给模型，并有 recall@k / MRR 评测。
 - **结构化运行报告**：修复前后测试对比、修复/回归的用例、轮数、工具调用、token 用量。
 
 ## 30 秒体验（无需 API key）
@@ -62,7 +63,7 @@ flowchart LR
 | 上下文工程：窗口、截断、摘要、仓库概览 | `src/context/`、`src/features.ts` |
 | MCP 客户端 / 服务端 | `src/mcp/` |
 | 回放、每轮日志、运行报告 | `src/replay.ts`、`src/model-log.ts`、`src/report.ts` |
-| RAG（PDF 分片、向量、检索） | `src/rag/` |
+| RAG：BM25、RRF 混合检索、文档切分、检索评测、PDF 向量索引 | `src/rag/` |
 
 项目最初是 Python 原型，后移植为 TypeScript（Node.js 24+）。下文“代码对应”一节列出了两版文件的对应关系。
 
@@ -183,6 +184,7 @@ Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺�
 | `--repo-map on\|off` | `on` | 固定上下文中加入仓库概览（文件 + 顶层声明） |
 | `--project-notes on\|off` | `on` | 固定上下文中加入根目录的 `AGENTS.md` / `CLAUDE.md`（作为数据） |
 | `--loop-guard on\|off` | `on` | 重复检测（见“模型调用与重复检测”） |
+| `--docs on\|off` | `on` | 有文档（或 `--docs-index`）时向模型提供 `search_docs`（见“RAG”） |
 
 ```bash
 npm run agent -- --summary llm --task "..."
@@ -246,7 +248,26 @@ PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本�
 
 若希望运行时完全不依赖 Python，设置 `EMBEDDING_BASE_URL` 为提供同一模型的兼容 embedding 服务，例如本地服务 `http://127.0.0.1:8080/v1`，并配置 `EMBEDDING_MODEL`、可选 `EMBEDDING_API_KEY`。本项目不负责部署模型服务，也不会自动下载新格式权重。
 
-目前检索仍为 JSON + 全量余弦计算，没有向量数据库、重排器或检索增强回答；这是原代码实际实现的范围。
+向量检索仍是 JSON 索引 + 对全部向量做点积（加载时归一化一次，Top-K 用小顶堆），没有向量数据库或重排器。
+
+### 接入 Agent：search_docs
+
+`search_docs(query, top_k)` 检索工作副本中的文档（`md`/`mdx`/`txt`/`rst`/`adoc`），以及 `--docs-index` 指定的预建向量索引（如上面由 PDF 生成的索引）。
+
+- **切分**：按 Markdown 标题分节，再把空行分隔的段落打包到 1200 字符以内；代码块（```）整体保留，其中的 `#` 注释不当作标题。每个片段带标题路径和行号范围（如 `README.md:137-145`），模型可以再用 `read_file` 按行读取。
+- **BM25**：不依赖任何模型。分词兼顾中英文和代码：英文转小写、去停用词，`camelCase`/`snake_case` 标识符额外拆分；中文用相邻两字（bigram）。倒排索引只给包含查询词的片段打分。
+- **混合检索**：索引带向量且 embedding 模型可用时，再按余弦相似度排序，两路结果用 RRF（`1 / (60 + 名次)` 相加）融合，不需要把 BM25 分数和余弦分数换算到同一尺度；embedding 不可用时自动退回 BM25，并在结果中说明。
+- **只在有用时提供**：工作副本没有文档、也没有索引时，不把 `search_docs` 交给模型；`--docs off` 可关闭。文档被修改后索引按文件大小和修改时间自动重建。
+- **检索评测**：`eval-docs` 计算 recall@k 和 MRR。`eval/docs-cases.json` 是 12 个针对本 README 的中文问题（按章节标题标注相关性）。
+
+```bash
+npm run rag -- search-docs "search_docs 怎么切分文档" --top-k 3
+npm run rag -- eval-docs eval/docs-cases.json --top-k 5
+npm run agent -- --docs-index .rag_cache/thinkpython2.index.json --task "..."
+```
+
+在本 README 上的实测结果（只用 BM25，未配置 embedding）：**recall@5 = 0.917，MRR = 0.875**（12 个问题）。唯一未命中的问题关于离线回放：排第一的是开头的快速体验一节，内容同样相关，但标注只指向回放一节；标注保持原样，不在看到结果后修改。评测问题不要原样出现在被检索的文档里，否则会泄漏。样本很小，只能说明检索链路可用。
+
 
 ## 手写 MCP
 

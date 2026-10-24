@@ -160,7 +160,7 @@ test("sandboxed tests run through docker with in-image interpreters, and a timeo
 test("MCP server receives the test configuration explicitly", async t => {
   const dir = await temp(t);
   const root = await project(path.join(dir, "p"));
-  const client = new MCPClient(new URL("../src/mcp/server.ts", import.meta.url), root, undefined, { command: "echo custom-runner" });
+  const client = new MCPClient(new URL("../src/mcp/server.ts", import.meta.url), root, undefined, { testConfig: { command: "echo custom-runner" } });
   try {
     const result = await client.callTool("run_tests", {}) as any;
     assert.equal(result.exit_code, 0);

@@ -24,6 +24,7 @@ import { buildRepoMap, loadProjectNotes } from "./context/project.js";
 import { llmSummaryHeader, llmSummaryRequest, readPlanSteps, ruleSummary, type RunDigest } from "./context/summary.js";
 import { defaultFeatures, type AgentFeatures } from "./features.js";
 import { findTestTampering } from "./guard.js";
+import { hasDocs, type DocsConfig } from "./rag/docs.js";
 export interface AgentOptions {
   replay?: string;
   source?: string;
@@ -43,6 +44,8 @@ export interface AgentOptions {
   testConfig?: TestConfig;
   /** Stream model output (SSE) and print text as it arrives. */
   stream?: boolean;
+  /** Extra prebuilt docs index for search_docs, and an embedder override for tests. */
+  docs?: DocsConfig;
 }
 const mock = (round: number): Message => {
   const operations = [
@@ -180,6 +183,7 @@ export async function runAgent(options: AgentOptions = {}) {
     return result;
   };
   let modelTools = tools;
+  let docsOffered = false;
   try {
     if (setup && (setup.exit_code !== 0 || setup.time_out)) {
       reason = "setup_error";
@@ -193,10 +197,14 @@ export async function runAgent(options: AgentOptions = {}) {
         new URL(`./mcp/server.${extension}`, import.meta.url),
         workspace.projectDir,
         undefined,
-        testConfig,
+        { testConfig, docs: { indexPath: options.docs?.indexPath } },
       );
       modelTools = await mcp.listTools();
     }
+    // Offer search_docs only when there is something to search: every extra tool costs context and choice accuracy.
+    const docsAvailable = features.docs && await hasDocs(workspace.projectDir, options.docs);
+    if (!docsAvailable) modelTools = modelTools.filter((tool) => tool.name !== "search_docs");
+    docsOffered = docsAvailable;
     for (let round = 0; round < maxRounds; round++) {
       reason = "model_error";
       let message: Message;
@@ -376,7 +384,7 @@ export async function runAgent(options: AgentOptions = {}) {
                 workspace.projectDir,
                 call.function.name,
                 args as Record<string, unknown>,
-                { testConfig },
+                { testConfig, docs: options.docs },
               );
           if (writeTools.has(call.function.name)) {
             successfulWrites++;
@@ -535,6 +543,7 @@ export async function runAgent(options: AgentOptions = {}) {
       context: { ...contextStats, llm_summary_calls: llmSummary.calls, llm_summary_errors: llmSummary.errors },
       model_requests: { retries: modelCalls.retries, context_overflow_retries: modelCalls.overflowRetries, retry_errors: modelCalls.errors.slice(-5) },
       loop: { guard: features.loopGuard, warnings: loopStats.warnings, detections: loopStats.detections },
+      docs: { offered: docsOffered, index: options.docs?.indexPath ?? null },
     },
     tests: testHistory.summary(),
     changes: changeSummary(diff.changes),

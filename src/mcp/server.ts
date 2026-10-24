@@ -32,9 +32,9 @@ async function main() {
   if (flag < 0 || !process.argv[flag + 1]) throw new Error("需要 --project-dir");
   const root = await fs.realpath(process.argv[flag + 1]);
   if (!(await fs.stat(root)).isDirectory()) throw new Error("工作目录不存在");
-  // The agent passes its test configuration (custom command, sandbox) explicitly, never via shared files.
-  const configFlag = process.argv.indexOf("--test-config");
-  const context: ToolContext = configFlag < 0 ? {} : { testConfig: JSON.parse(process.argv[configFlag + 1]) };
+  // The agent passes its tool configuration (test command, sandbox, docs index) explicitly, never via shared files.
+  const contextFlag = process.argv.indexOf("--tool-context");
+  const context: ToolContext = contextFlag < 0 ? {} : JSON.parse(process.argv[contextFlag + 1]);
   for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
     let message: unknown;
     try { message = JSON.parse(line); }

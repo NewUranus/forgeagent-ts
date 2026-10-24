@@ -12,6 +12,8 @@ export interface AgentFeatures {
   projectNotes: boolean;
   /** Warn once, then stop, when the agent repeats calls, test results or failed completion checks. */
   loopGuard: boolean;
+  /** Offer search_docs when the project has documentation or a docs index is configured. */
+  docs: boolean;
 }
 
 export const defaultFeatures: AgentFeatures = {
@@ -21,6 +23,7 @@ export const defaultFeatures: AgentFeatures = {
   repoMap: true,
   projectNotes: true,
   loopGuard: true,
+  docs: true,
 };
 
 const onOff = (name: string, value: string) => {
@@ -36,7 +39,7 @@ const oneOf = <T extends string>(name: string, value: string, allowed: readonly 
 
 /** Parse CLI strings; options left undefined keep their defaults. */
 export function parseFeatures(values: {
-  context?: string; truncate?: string; summary?: string; "repo-map"?: string; "project-notes"?: string; "loop-guard"?: string;
+  context?: string; truncate?: string; summary?: string; "repo-map"?: string; "project-notes"?: string; "loop-guard"?: string; docs?: string;
 }): Partial<AgentFeatures> {
   const features: Partial<AgentFeatures> = {};
   if (values.context !== undefined) features.context = oneOf("context", values.context, ["window", "none"] as const);
@@ -45,5 +48,6 @@ export function parseFeatures(values: {
   if (values["repo-map"] !== undefined) features.repoMap = onOff("repo-map", values["repo-map"]);
   if (values["project-notes"] !== undefined) features.projectNotes = onOff("project-notes", values["project-notes"]);
   if (values["loop-guard"] !== undefined) features.loopGuard = onOff("loop-guard", values["loop-guard"]);
+  if (values.docs !== undefined) features.docs = onOff("docs", values.docs);
   return features;
 }

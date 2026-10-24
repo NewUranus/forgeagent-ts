@@ -1,0 +1,14 @@
+[
+  { "query": "服务端报上下文超限怎么办", "relevant": ["title:模型调用与重复检测"] },
+  { "query": "重复检测什么时候终止任务", "relevant": ["title:模型调用与重复检测"] },
+  { "query": "怎么在 Docker 里跑测试", "relevant": ["title:执行环境"] },
+  { "query": "git worktree 模式怎么交付结果", "relevant": ["title:执行环境"] },
+  { "query": "SWE-bench Pro 怎么判定任务已解决", "relevant": ["title:SWE-bench Pro"] },
+  { "query": "如何不调用 API 重放一次运行", "relevant": ["title:回放真实模型记录"] },
+  { "query": "滑动窗口会不会拆开工具调用和结果", "relevant": ["title:上下文工程"] },
+  { "query": "termination.reason 有哪些取值", "relevant": ["title:运行报告"] },
+  { "query": "怎么配置千问的 API key", "relevant": ["title:使用千问或其他兼容接口"] },
+  { "query": "MCP 实现了哪些方法", "relevant": ["title:手写 MCP"] },
+  { "query": "每轮模型请求保存在哪里", "relevant": ["title:每轮模型日志"] },
+  { "query": "PDF 怎么分片和生成向量", "relevant": ["title:RAG"] }
+]
