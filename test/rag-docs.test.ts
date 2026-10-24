@@ -4,7 +4,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { Bm25Index, reciprocalRankFusion, tokenize, topK } from "../src/rag/lexical.ts";
-import { chunkDocument, DocSearch, evaluateRetrieval } from "../src/rag/docs.ts";
+import { chunkDocument, DocSearch, evaluateRetrieval, isRelevant } from "../src/rag/docs.ts";
+import { compare, metrics, withChineseUnigrams } from "../src/rag/matrix.ts";
 import { executeTool } from "../src/tools.ts";
 import { MCPClient } from "../src/mcp/client.ts";
 import { runAgent } from "../src/agent.ts";
@@ -124,6 +125,32 @@ test("retrieval evaluation reports recall@k and MRR", async t => {
   assert.equal(report.recall_at_k, 3 / 4);
   assert.equal(report.mrr, (1 + 1 + 1) / 4);
   assert.equal(report.per_case[2].rank, null);
+});
+
+test("relevance rules: id prefix, heading path, overlapping line range, PDF page range", () => {
+  const md = { id: "README.md:10", location: "README.md:10-24", title: "ForgeAgent > 执行环境" };
+  const pdf = { id: "book.index.json#7", location: "book.pdf 第 12 页", title: "" };
+  assert.ok(isRelevant(md, "README.md:10") && isRelevant(md, "title:执行环境"));
+  assert.ok(isRelevant(md, "lines:README.md:24-30") && isRelevant(md, "lines:README.md:12-12"));
+  assert.ok(!isRelevant(md, "lines:README.md:25-30") && !isRelevant(md, "lines:docs/README.md:10-24"));
+  assert.ok(isRelevant(pdf, "page:12") && isRelevant(pdf, "page:11-13"));
+  assert.ok(!isRelevant(pdf, "page:1-11") && !isRelevant(md, "page:10-24"), "页码不会和行号混淆");
+});
+
+test("BM25 accepts another tokenizer; the unigram variant matches single Chinese characters", () => {
+  const texts = ["重试策略", "沙箱配置"];
+  assert.deepEqual(new Bm25Index(texts).search("试", 2), []);
+  assert.deepEqual(new Bm25Index(texts, undefined, undefined, withChineseUnigrams).search("试", 2).map(h => h.doc), [0]);
+});
+
+test("matrix metrics and paired comparison", () => {
+  const at = (ranks: (number | null)[]) => ranks.map((rank, i) => ({ query: `q${i}`, style: "lexical", rank, top: [] }));
+  const baseline = at([1, 3, null, 8]), other = at([2, null, 4, 1]);
+  assert.deepEqual(metrics(baseline), { cases: 4, recall_at_1: 0.25, recall_at_5: 0.5, recall_at_10: 0.75, mrr_at_10: (1 + 1 / 3 + 1 / 8) / 4 });
+  const result = compare(baseline, other);
+  assert.deepEqual([result.gained, result.lost, result.delta_recall_at_5], [["q2", "q3"], ["q1"], 0.25]);
+  assert.ok(result.ci95[0] <= 0 && result.ci95[1] >= 0);
+  assert.deepEqual(compare(baseline, other).ci95, result.ci95, "固定种子，结果可复现");
 });
 
 test("search_docs works through executeTool and the MCP server, and sees edited docs", async t => {

@@ -1,0 +1,13 @@
+{
+  "frozen_at": "2026-10-24T08:33:51.504Z",
+  "note": "Labels written before any retrieval run of this matrix; relevance follows the rules in src/rag/matrix.ts, not retrieval output.",
+  "sha256": {
+    "eval/retrieval/readme.json": "439a5e5e8526dc7fd3a60d80fabd814bbd63302f533472658803a960e7bdf776",
+    "eval/retrieval/thinkpython.json": "e770f004203b6bbed77d36d2194ad5d4b295501e52a99be45ca456f380e8430c",
+    "README.md": "1f829bf19fe4d6c076b268fdc4e7fd40c1b4b0cd45507d22a0220dd520bf4cea"
+  },
+  "cases": {
+    "readme": 36,
+    "thinkpython": 32
+  }
+}

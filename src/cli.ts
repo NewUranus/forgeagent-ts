@@ -77,12 +77,20 @@ async function main() {
       const docs = await DocSearch.build(path.resolve(values.source ?? path.join(ROOT, ".")), { indexPath: values["docs-index"] });
       const cases = JSON.parse(await fs.readFile(argument, "utf8"));
       console.log(JSON.stringify(await evaluateRetrieval(docs, cases, Number(values["top-k"] ?? 5)), null, 2));
+    } else if (action === "eval-matrix") {
+      const { runMatrix, renderMatrix } = await import("./rag/matrix.js");
+      const stamp = new Date().toISOString().slice(0, 10);
+      const out = path.join(ROOT, "eval", "results", `retrieval-${stamp}.json`);
+      const report = await runMatrix({ readmeCases: path.join(ROOT, "eval/retrieval/readme.json"), pdfCases: path.join(ROOT, "eval/retrieval/thinkpython.json"),
+        pdfIndex: values["docs-index"] ?? path.join(cache, "thinkpython2.index.json"), out });
+      // No .md next to the JSON: search_docs indexes markdown, and results quoting the questions would leak into the corpus.
+      console.log(`${renderMatrix(report)}\n\n明细：${out}`);
     } else if (action === "import") {
       if (!argument) throw new Error("用法：npm run rag -- import <Python index.json>");
       const index = await loadIndex(argument);
       const output = path.join(cache, path.basename(argument));
       await fs.writeFile(output, JSON.stringify(index)); console.log(`已导入 ${index.chunks.length} 个向量：${output}`);
-    } else throw new Error("rag 子命令：chunk / embed / search / search-docs / eval-docs / import");
+    } else throw new Error("rag 子命令：chunk / embed / search / search-docs / eval-docs / eval-matrix / import");
   } else throw new Error("命令：agent / runner / rag / swe");
 }
 main().catch(e => { console.error(String(e)); process.exitCode = 1; });

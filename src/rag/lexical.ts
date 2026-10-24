@@ -58,9 +58,9 @@ export class Bm25Index {
   private lengths: number[] = [];
   private averageLength = 0;
 
-  constructor(texts: string[], private k1 = 1.2, private b = 0.75) {
+  constructor(texts: string[], private k1 = 1.2, private b = 0.75, private tokenizer = tokenize) {
     texts.forEach((text, doc) => {
-      const terms = tokenize(text);
+      const terms = tokenizer(text);
       this.lengths.push(terms.length);
       for (const term of terms) {
         if (!this.postings.has(term)) this.postings.set(term, new Map());
@@ -83,7 +83,7 @@ export class Bm25Index {
   /** Only documents sharing at least one query term are scored, via the inverted index. */
   search(query: string, k: number) {
     const scores = new Map<number, number>();
-    for (const term of new Set(tokenize(query))) {
+    for (const term of new Set(this.tokenizer(query))) {
       const counts = this.postings.get(term);
       if (!counts) continue;
       const idf = this.idf(term);

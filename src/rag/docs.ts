@@ -192,9 +192,31 @@ export interface RetrievalCase {
   query: string;
   /**
    * A result is relevant when its id or location starts with one of these, or, for entries written
-   * "title:<text>", when its heading path contains the text (stable when line numbers move).
+   * "title:<text>", when its heading path contains the text (stable when line numbers move);
+   * "lines:<file>:<a>-<b>" when its line range overlaps a–b; "page:<a>-<b>" when its PDF page is in a–b.
    */
   relevant: string[];
+}
+
+const range = (text: string) => {
+  const [start, end = start] = text.split("-").map(Number);
+  return [start, end];
+};
+
+export function isRelevant(result: { id: string; location: string; title: string }, wanted: string) {
+  if (wanted.startsWith("title:")) return result.title.includes(wanted.slice(6));
+  if (wanted.startsWith("lines:")) {
+    const at = wanted.lastIndexOf(":");
+    const [file, [start, end]] = [wanted.slice(6, at), range(wanted.slice(at + 1))];
+    const match = result.location.match(/^(.*):(\d+)-(\d+)$/);
+    return Boolean(match) && match![1] === file && Number(match![2]) <= end && Number(match![3]) >= start;
+  }
+  if (wanted.startsWith("page:")) {
+    const [start, end] = range(wanted.slice(5));
+    const page = Number(result.location.match(/第 (\d+) 页$/)?.[1]);
+    return page >= start && page <= end;
+  }
+  return result.id.startsWith(wanted) || result.location.startsWith(wanted);
 }
 
 /** recall@k: share of cases with a relevant result in the top k. MRR: mean of 1 / rank of the first hit. */
@@ -202,10 +224,7 @@ export async function evaluateRetrieval(search: DocSearch, cases: RetrievalCase[
   const perCase = [];
   for (const item of cases) {
     const { results } = await search.search(item.query, k);
-    const matches = (r: (typeof results)[number], wanted: string) => wanted.startsWith("title:")
-      ? r.title.includes(wanted.slice(6))
-      : r.id.startsWith(wanted) || r.location.startsWith(wanted);
-    const rank = results.findIndex((r) => item.relevant.some((wanted) => matches(r, wanted))) + 1;
+    const rank = results.findIndex((r) => item.relevant.some((wanted) => isRelevant(r, wanted))) + 1;
     perCase.push({ query: item.query, rank: rank || null, top: results.map((r) => r.location) });
   }
   const hits = perCase.filter((c) => c.rank !== null);
