@@ -13,26 +13,41 @@ const classify = (r: TestResult): TaskStatus =>
       : r.exit_code === 1
         ? "failed"
         : "error";
+// stats_helpers.ts with a chosen body for count(); total() matches the playground.
+const helpers = (countBody: string) =>
+  `export function total(numbers: (number | null)[]): number {
+  return numbers.reduce<number>((sum, n) => sum + (n ?? 0), 0);
+}
+export function count(numbers: (number | null)[]): number {
+  ${countBody}
+}
+`;
+// The playground's real defect: count() includes one extra element.
+export const DEFECT = helpers("return numbers.filter(n => n !== null).length + 1;");
+export const CANDIDATES = [
+  // Missing closing brace: rejected by the syntax check before any test runs.
+  helpers("return numbers.filter(n => n !== null).length;").replace(/\n}\n$/, "\n"),
+  // Counts nulls too, so averages with null inputs stay wrong.
+  helpers("return numbers.length;"),
+  helpers("return numbers.filter(n => n !== null).length;"),
+];
+
+/**
+ * Deterministic repair loop without a model: set count() to the known defect (whatever state the
+ * source is in), then try a syntax error, a wrong fix and the right fix, testing after each.
+ */
 export async function runRepairDemo(base = ROOT, source = path.join(ROOT, "playground")) {
   const { projectDir: root, taskDir } = await createWorkspace(source, base);
-  const file = path.join(root, "calculator.ts");
-  const original = await fs.readFile(file, "utf8");
-  // Inject a defect only into this new demonstration copy.
-  await fs.writeFile(
-    file,
-    "export function average(numbers: (number|null)[]): number { return numbers.reduce<number>((s,n)=>s+(n??0),0)/numbers.length; }",
-  );
+  const file = path.join(root, "stats_helpers.ts");
+  // Inject the defect only into this new demonstration copy.
+  await fs.writeFile(file, DEFECT);
   const initial = await runTests(root);
   let status = classify(initial);
   const history: unknown[] = [{ attempt: 0, status, ...initial }];
   if (status !== "passed") {
     const backup = await fs.readFile(file, "utf8");
     await fs.writeFile(file + ".bak", backup);
-    const candidates = [
-      "export function average( {",
-      "export function average(numbers: (number|null)[]) { return 0; }",
-      original,
-    ];
+    const candidates = CANDIDATES;
     for (const [index, code] of candidates.entries()) {
       const diagnostics =
         ts.transpileModule(code, {

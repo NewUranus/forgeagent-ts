@@ -2,8 +2,8 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { diffLines } from "diff";
-import { listFiles } from "./workspace.js";
-import { isTestFile } from "./tools.js";
+import { listFiles, type FileChange } from "./workspace.js";
+import { isTestConfig, isTestFile } from "./guard.js";
 import type { TestResult } from "./types.js";
 
 /** Hash the copied inputs, before tests can create output files. Exclusions match workspace copying. */
@@ -152,10 +152,11 @@ export async function modelStatistics(taskDir: string) {
     summary: { api_calls: summary.api_calls, duration_ms: summary.duration_ms, usage: summary.usage } };
 }
 
-export function changeSummary(changes: { path: string; before: string; after: string; deleted: boolean }[]) {
+export function changeSummary(changes: FileChange[]) {
   const files = changes.map(change => {
-    const lines = diffLines(change.before, change.after);
-    return { path: change.path, deleted: change.deleted, is_test: isTestFile(change.path),
+    const lines = change.binary ? [] : diffLines(change.before?.toString("utf8") ?? "", change.after?.toString("utf8") ?? "");
+    return { path: change.path, created: change.before === null, deleted: change.after === null, binary: change.binary,
+      is_test: isTestFile(change.path) || isTestConfig(change.path),
       added_lines: lines.filter(line => line.added).reduce((sum, line) => sum + (line.count ?? 0), 0),
       deleted_lines: lines.filter(line => line.removed).reduce((sum, line) => sum + (line.count ?? 0), 0) };
   });

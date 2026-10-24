@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { listFiles, projectPath } from "./workspace.js";
+import { assertTestSettingsUnchanged, isProtected, isTestFile } from "./guard.js";
 import type { TestResult, ToolDefinition } from "./types.js";
 const MAX_READ_LINES = 400;
 const MAX_LINE_CHARS = 1000;
@@ -115,11 +116,7 @@ export const tools: ToolDefinition[] = [
     ),
   },
 ];
-export function isTestFile(name: string) {
-  return /(^|\/)(test[s]?|__tests__)(\/|\.)|(^|\/)test_|[._](test|spec)\.[^.]+$/.test(
-    name,
-  );
-}
+export { isTestFile };
 export interface TestSelection {
   target?: string;
   namePattern?: string;
@@ -220,8 +217,8 @@ function matchesGlob(file: string, pattern: string) {
 }
 async function writableFile(root: string, relative: string, mustExist: boolean) {
   const file = await projectPath(root, relative, true);
-  if (isTestFile(path.relative(await fs.realpath(root), file).split(path.sep).join("/")))
-    throw new Error("禁止修改测试文件");
+  if (isProtected(path.relative(await fs.realpath(root), file).split(path.sep).join("/")))
+    throw new Error("禁止修改测试文件或测试配置");
   if (mustExist && !(await fs.stat(file).then((s) => s.isFile(), () => false)))
     throw new Error(`文件不存在：${relative}。新建文件请用 write_file`);
   return file;
@@ -347,6 +344,7 @@ export async function executeTool(
       const relative = stringArg(args, "relative_path");
       const file = await writableFile(root, relative, false);
       const content = stringArg(args, "content");
+      assertTestSettingsUnchanged(relative, await fs.readFile(file, "utf8").catch(() => null), content);
       await fs.mkdir(path.dirname(file), { recursive: true });
       await fs.writeFile(file, content);
       return `已写入 ${relative}${await syntaxCheck(file, content)}`;
@@ -354,11 +352,9 @@ export async function executeTool(
     case "edit_file": {
       const relative = stringArg(args, "relative_path");
       const file = await writableFile(root, relative, true);
-      const edited = applyEdit(
-        await fs.readFile(file, "utf8"),
-        stringArg(args, "old_str"),
-        stringArg(args, "new_str"),
-      );
+      const original = await fs.readFile(file, "utf8");
+      const edited = applyEdit(original, stringArg(args, "old_str"), stringArg(args, "new_str"));
+      assertTestSettingsUnchanged(relative, original, edited.content);
       await fs.writeFile(file, edited.content);
       return `已修改 ${relative} 第 ${edited.line} 行起的内容${await syntaxCheck(file, edited.content)}`;
     }

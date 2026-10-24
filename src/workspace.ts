@@ -41,18 +41,34 @@ export async function createWorkspace(source: string, base: string) {
   await fs.cp(source, projectDir, { recursive: true, filter: async p => !ignoreName(path.basename(p)) && !(await fs.lstat(p)).isSymbolicLink() });
   return { id, taskDir, projectDir, source };
 }
-export async function diffWorkspace(source: string, root: string, baseline?: Map<string, string>) {
-  const names = [...new Set([...(baseline ? baseline.keys() : await listFiles(source)), ...await listFiles(root)])].sort();
-  const changes: { path: string; before: string; after: string; deleted: boolean }[] = [];
+/** Snapshot every copied file as bytes, so later diffs and checks see all file types. */
+export async function snapshotFiles(root: string): Promise<Map<string, Buffer>> {
+  const files = new Map<string, Buffer>();
+  for (const name of await listFiles(root)) files.set(name, await fs.readFile(path.join(root, name)));
+  return files;
+}
+export const isBinary = (data: Buffer) => data.includes(0);
+export interface FileChange {
+  path: string;
+  before: Buffer | null; // null: the file did not exist
+  after: Buffer | null; // null: the file was deleted
+  binary: boolean;
+}
+// Text files get a unified diff; binary files are listed but have no patch body.
+export async function diffWorkspace(source: string, root: string, baseline?: Map<string, Buffer>) {
+  const before = baseline ?? await snapshotFiles(source);
+  const after = await snapshotFiles(root);
+  const names = [...new Set([...before.keys(), ...after.keys()])].sort();
+  const changes: FileChange[] = [];
   let patch = "";
   for (const name of names) {
-    if (!/\.(ts|js|json|py|md|txt)$/.test(name)) continue;
-    const read = (base: string) => fs.readFile(path.join(base, name), "utf8").catch(e => { if (e.code === "ENOENT") return ""; throw e; });
-    const before = baseline ? (baseline.get(name) ?? "") : await read(source), after = await read(root);
-    const deleted = !await fs.stat(path.join(root, name)).then(() => true, () => false);
-    if (before === after) continue;
-    patch += createTwoFilesPatch(`a/${name}`, `b/${name}`, before, after);
-    changes.push({ path: name, before, after, deleted });
+    const a = before.get(name) ?? null, b = after.get(name) ?? null;
+    if (a && b && a.equals(b)) continue;
+    const binary = Boolean((a && isBinary(a)) || (b && isBinary(b)));
+    patch += binary
+      ? `Binary files a/${name} and b/${name} differ\n`
+      : createTwoFilesPatch(`a/${name}`, `b/${name}`, a?.toString("utf8") ?? "", b?.toString("utf8") ?? "");
+    changes.push({ path: name, before: a, after: b, binary });
   }
   return { changes, patch };
 }

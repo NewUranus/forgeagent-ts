@@ -92,6 +92,13 @@ test('runner handles syntax failure and test failure then repairs', async t => {
   assert.equal(report.final_status, 'passed');
   assert.deepEqual(report.history.map((r: any) => r.status), ['failed', 'error', 'failed', 'passed']);
 });
+test('repair demo also succeeds on the real playground, whose own count() is defective', async t => {
+  const base = await temp(t);
+  const report = await runRepairDemo(base, path.join(ROOT, 'playground'));
+  assert.equal(report.final_status, 'passed');
+  assert.deepEqual(report.history.map((r: any) => r.status), ['failed', 'error', 'failed', 'passed']);
+  assert.match(await fs.readFile(path.join(report.workspace, 'stats_helpers.ts'), 'utf8'), /filter\(n => n !== null\)\.length;/);
+});
 test('chunks preserve overlap and reject non-terminating settings', () => {
   const pages = [{ source: 'book', page: 1, content: 'abcdefghij' }];
   const chunks = chunkPages(pages, 6, 2);

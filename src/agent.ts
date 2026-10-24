@@ -5,7 +5,7 @@ import {
   createWorkspace,
   diffWorkspace,
   projectPath,
-  listFiles,
+  snapshotFiles,
 } from "./workspace.js";
 import { tools, executeTool, runTests, writeTools } from "./tools.js";
 import type { Message, TaskStatus, TestResult } from "./types.js";
@@ -18,6 +18,7 @@ import { shrinkForContext } from "./context/truncate.js";
 import { buildRepoMap, loadProjectNotes } from "./context/project.js";
 import { llmSummaryHeader, llmSummaryRequest, readPlanSteps, ruleSummary, type RunDigest } from "./context/summary.js";
 import { defaultFeatures, type AgentFeatures } from "./features.js";
+import { findTestTampering } from "./guard.js";
 export interface AgentOptions {
   replay?: string;
   source?: string;
@@ -97,14 +98,8 @@ export async function runAgent(options: AgentOptions = {}) {
   );
   const initialFingerprint = await fingerprint(workspace.projectDir);
   const testHistory = new TestHistory(workspace.taskDir);
-  const baseline = new Map<string, string>();
-  for (const name of await listFiles(workspace.projectDir)) {
-    if (/\.(ts|js|json|py|md|txt)$/.test(name))
-      baseline.set(
-        name,
-        await fs.readFile(path.join(workspace.projectDir, name), "utf8"),
-      );
-  }
+  // Every file, not only some extensions: diffs, apply and the test-tampering check all compare against it.
+  const baseline = await snapshotFiles(workspace.projectDir);
   const messages: Message[] = [
     {
       role: "system",
@@ -263,6 +258,10 @@ export async function runAgent(options: AgentOptions = {}) {
           issues.push("最后一次修改后的测试没有通过");
         }
 
+        // Exit check: compare every file with the baseline, whatever tool or process changed it.
+        const tampering = findTestTampering(baseline, await snapshotFiles(workspace.projectDir));
+        if (tampering.length) issues.push(...tampering, "测试文件和测试配置必须保持原样，请撤销上述改动。");
+
         if (issues.length > 0) {
           messages.push({
             role: "user",
@@ -384,11 +383,15 @@ export async function runAgent(options: AgentOptions = {}) {
       } else {
         for (const change of diff.changes) {
           const target = await projectPath(workspace.source, change.path, true);
-          const current = await fs.readFile(target, "utf8").catch((e) => {
-            if (e.code === "ENOENT") return "";
+          const current = await fs.readFile(target).catch((e) => {
+            if (e.code === "ENOENT") return null;
             throw e;
           });
-          if (current !== change.before) {
+          // Compare bytes and existence, so an empty file and a missing file are not confused.
+          const unchanged = current === null || change.before === null
+            ? current === change.before
+            : current.equals(change.before);
+          if (!unchanged) {
             reason = "source_conflict";
             throw new Error(`源文件已变化，未应用补丁：${change.path}`);
           }
@@ -396,7 +399,7 @@ export async function runAgent(options: AgentOptions = {}) {
         reason = "apply_error";
         for (const change of diff.changes) {
           const target = await projectPath(workspace.source, change.path, true);
-          if (change.deleted) await fs.rm(target);
+          if (change.after === null) await fs.rm(target);
           else {
             await fs.mkdir(path.dirname(target), { recursive: true });
             await fs.writeFile(target, change.after);
@@ -412,6 +415,7 @@ export async function runAgent(options: AgentOptions = {}) {
       await fs.writeFile(path.join(workspace.taskDir, "error.txt"), errorMessage);
     }
   }
+  const testTampering = findTestTampering(baseline, await snapshotFiles(workspace.projectDir));
   const model = await modelStatistics(workspace.taskDir);
   const plan = await readPlanProgress(workspace.taskDir);
   const report = {
@@ -428,7 +432,7 @@ export async function runAgent(options: AgentOptions = {}) {
       options: { max_rounds: maxRounds, mcp: Boolean(options.mcp), apply: Boolean(options.apply), replay_source: replay?.directory ?? null, features },
     },
     timing: { started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - runStart) },
-    termination: { reason, error: errorMessage, verified, plan },
+    termination: { reason, error: errorMessage, verified, plan, test_tampering: testTampering },
     statistics: {
       model, tool_calls: toolCalls, tool_errors: toolErrors, successful_writes: successfulWrites, test_runs: testHistory.runs.length,
       // Only API runs build a request window; other modes leave these at zero.
