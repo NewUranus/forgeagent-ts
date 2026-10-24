@@ -12,8 +12,8 @@ import {
   snapshotFiles,
   type WorkspaceMode,
 } from "./workspace.js";
-import { tools, executeTool, runProcess, runTests, writeTools, type TestConfig } from "./tools.js";
-import type { Message, TaskStatus, TestResult } from "./types.js";
+import { tools, executeTool, runProcess, runTests, writeTools, type TestConfig, type TestSelection } from "./tools.js";
+import type { Message, TaskStatus, TestResult, ToolCall, ToolDefinition } from "./types.js";
 import { MCPClient } from "./mcp/client.js";
 import { logModelRound } from "./model-log.js";
 import { loadReplay } from "./replay.js";
@@ -25,6 +25,7 @@ import { llmSummaryHeader, llmSummaryRequest, readPlanSteps, ruleSummary, type R
 import { defaultFeatures, type AgentFeatures } from "./features.js";
 import { findTestTampering } from "./guard.js";
 import { hasDocs, type DocsConfig } from "./rag/docs.js";
+import { defaultPlanLimits, runPlanExecute, type PlanLimits } from "./strategy/plan-execute.js";
 export interface AgentOptions {
   replay?: string;
   source?: string;
@@ -46,6 +47,9 @@ export interface AgentOptions {
   stream?: boolean;
   /** Extra prebuilt docs index for search_docs, and an embedder override for tests. */
   docs?: DocsConfig;
+  /** "react" (default): one tool loop. "plan-execute": planner, per-step executor, harness acceptance, replanning. */
+  strategy?: "react" | "plan-execute";
+  planLimits?: Partial<PlanLimits>;
 }
 const mock = (round: number): Message => {
   const operations = [
@@ -149,12 +153,12 @@ export async function runAgent(options: AgentOptions = {}) {
   const loop = new LoopDetector();
   const loopStats = { warnings: 0, detections: [] as string[] };
   // Warn once with what repeated; on the next detection stop the run. Returns true to stop.
-  const onLoop = (hits: string[]) => {
+  const onLoop = (hits: string[], conversation: Message[] = messages) => {
     if (!hits.length || !features.loopGuard) return false;
     loopStats.detections.push(...hits);
     if (loopStats.warnings > 0) return true;
     loopStats.warnings++;
-    messages.push({ role: "user", content: [
+    conversation.push({ role: "user", content: [
       "检测到重复且没有进展的操作：", ...hits.map((hit) => `- ${hit}`),
       "请先分析之前的做法为什么没有效果，再换一种思路；如果继续重复，任务将被终止。",
     ].join("\n") });
@@ -163,10 +167,14 @@ export async function runAgent(options: AgentOptions = {}) {
   let status: TaskStatus = "running",
     verified = false;
   let mcp: MCPClient | undefined;
-  const maxRounds = options.maxRounds ?? (replay ? replay.length + 1 : Number(process.env.MAX_ROUNDS ?? 10));
+  const strategy = options.strategy ?? "react";
+  // Plan-and-execute spends calls on planning and per-step conversations, so it gets a larger default budget.
+  const maxRounds = options.maxRounds ?? (replay ? replay.length + 1 : strategy === "plan-execute" ? 30 : Number(process.env.MAX_ROUNDS ?? 10));
   if (!Number.isInteger(maxRounds) || maxRounds < 1)
     throw new Error("maxRounds 必须为正整数");
   const useMock = options.mock ?? process.env.USE_LLM === "false";
+  if (useMock && strategy === "plan-execute" && !replay && !options.reply)
+    throw new Error("mock 模式只演示 ReAct 流程；plan-execute 请使用真实模型、回放或自定义回复");
   const mode = replay ? "replay" : options.reply ? "custom" : useMock ? "mock" : "api";
   // Retries only matter for real API calls; read the policy there so other modes need no settings.
   const policy = mode === "api" ? retryPolicy() : { retries: 0, baseMs: 0, maxMs: 0 };
@@ -184,31 +192,28 @@ export async function runAgent(options: AgentOptions = {}) {
   };
   let modelTools = tools;
   let docsOffered = false;
-  try {
-    if (setup && (setup.exit_code !== 0 || setup.time_out)) {
-      reason = "setup_error";
-      throw new Error(`准备命令失败（${setup.time_out ? "超时" : `退出码 ${setup.exit_code}`}），输出见 setup.log`);
+  let planStats: Awaited<ReturnType<typeof runPlanExecute>>["stats"] | null = null;
+  // Tests the harness runs itself; a passing full run verifies the current code just like the model's run_tests.
+  const harnessTests = async (selection: TestSelection = {}) => {
+    const started = new Date().toISOString(), start = performance.now();
+    let result: TestResult;
+    try { result = await runTests(workspace.projectDir, undefined, selection, testConfig); }
+    catch (error) {
+      if (selection.target !== undefined || selection.namePattern !== undefined) throw error;
+      result = { exit_code: null, time_out: false, stdout: "", stderr: String(error) };
     }
-    console.log("运行修复前基线测试……");
-    await recordedTests("baseline");
-    if (options.mcp) {
-      const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
-      mcp = new MCPClient(
-        new URL(`./mcp/server.${extension}`, import.meta.url),
-        workspace.projectDir,
-        undefined,
-        { testConfig, docs: { indexPath: options.docs?.indexPath } },
-      );
-      modelTools = await mcp.listTools();
-    }
-    // Offer search_docs only when there is something to search: every extra tool costs context and choice accuracy.
-    const docsAvailable = features.docs && await hasDocs(workspace.projectDir, options.docs);
-    if (!docsAvailable) modelTools = modelTools.filter((tool) => tool.name !== "search_docs");
-    docsOffered = docsAvailable;
-    for (let round = 0; round < maxRounds; round++) {
+    await testHistory.record("verify", modelRound, result, started, start);
+    if (result.scope !== "partial") verified = result.exit_code === 0 && !result.time_out;
+    return result;
+  };
+  // One model turn on any conversation (ReAct history, planner, executor). Every call takes the next
+  // round number, so model logs and replays stay one continuous sequence whatever the strategy.
+  let modelRound = 0;
+  const callModel = async (conversation: Message[], toolDefs: ToolDefinition[]): Promise<Message> => {
+    const round = ++modelRound;
       reason = "model_error";
       let message: Message;
-      const toolSchemas = modelTools.map((t) => ({
+      const toolSchemas = toolDefs.map((t) => ({
         type: "function",
         function: {
           name: t.name,
@@ -218,28 +223,28 @@ export async function runAgent(options: AgentOptions = {}) {
       }));
       if (replay) {
         message = await logModelRound(
-          workspace.taskDir, round + 1, "replay",
-          { messages, tools: toolSchemas, replay_source: replay.directory },
+          workspace.taskDir, round, "replay",
+          { messages: conversation, tools: toolSchemas, replay_source: replay.directory },
           async () => replay.next(),
         );
       } else if (options.reply) {
         message = await logModelRound(
-          workspace.taskDir, round + 1, "custom", { messages },
-          () => options.reply!(messages),
+          workspace.taskDir, round, "custom", { messages: conversation },
+          () => options.reply!(conversation),
         );
       } else if (useMock) {
         message = await logModelRound(
-          workspace.taskDir, round + 1, "mock", { messages, tools: toolSchemas },
-          async () => mock(round),
+          workspace.taskDir, round, "mock", { messages: conversation, tools: toolSchemas },
+          async () => mock(round - 1),
         );
       } else {
         const { key, base, model } = modelConfig();
         const retriesBefore = modelCalls.retries;
         let response: any;
         for (let overflow = 0, budgetScale = 1; ; overflow++, budgetScale *= 0.7) {
-          let requestMessages: Message[] = messages;
+          let requestMessages: Message[] = conversation;
           if (features.context === "none") {
-            const estimated = estimateRequestToken(messages, toolSchemas);
+            const estimated = estimateRequestToken(conversation, toolSchemas);
             contextStats.max_estimated_tokens = Math.max(contextStats.max_estimated_tokens, estimated);
             console.log(`上下文：${estimated} tokens（估算），未启用上下文管理`);
           } else {
@@ -259,10 +264,10 @@ export async function runAgent(options: AgentOptions = {}) {
                 : features.summary === "llm" && llmSummary.text && dropped <= llmSummary.groups
                   ? llmSummaryHeader(dropped) + llmSummary.text
                   : ruleSummary(dropped, ruleDigest);
-            let context = buildSlidingWindow(messages, toolSchemas, inputBudget, { summary: summaryFor });
+            let context = buildSlidingWindow(conversation, toolSchemas, inputBudget, { summary: summaryFor });
             // Adding a summary can push out one more group, so fold newly dropped groups in a few times at most.
             for (let attempt = 0; features.summary === "llm" && context.droppedGroups > llmSummary.groups && attempt < 3; attempt++) {
-              const { groups } = splitGroups(messages);
+              const { groups } = splitGroups(conversation);
               const summaryRequest = llmSummaryRequest(model, llmSummary.text, groups.slice(llmSummary.groups, context.droppedGroups));
               try {
                 llmSummary.calls++;
@@ -279,7 +284,7 @@ export async function runAgent(options: AgentOptions = {}) {
                 console.error(`模型摘要失败，改用规则摘要：${String(error)}`);
                 break;
               }
-              context = buildSlidingWindow(messages, toolSchemas, inputBudget, { summary: summaryFor });
+              context = buildSlidingWindow(conversation, toolSchemas, inputBudget, { summary: summaryFor });
             }
             requestMessages = context.messages;
             contextStats.max_estimated_tokens = Math.max(contextStats.max_estimated_tokens, context.estimatedTokens);
@@ -293,7 +298,7 @@ export async function runAgent(options: AgentOptions = {}) {
 
           try {
             response = await logModelRound(
-              workspace.taskDir, round + 1, "api", request,
+              workspace.taskDir, round, "api", request,
               () => chatCompletion(base, key, request, { stream: options.stream, policy, record: modelCalls,
                 onText: (text) => process.stdout.write(text) }),
               "round",
@@ -320,8 +325,143 @@ export async function runAgent(options: AgentOptions = {}) {
         };
       }
       reason = "execution_error";
-      console.log(`\n===== 第 ${round + 1} 轮模型回复 =====`);
+      console.log(`\n===== 第 ${round} 轮模型回复 =====`);
       console.log(JSON.stringify(message, null, 2));
+    return message;
+  };
+  // Execute one tool call against the working copy and append its result to the conversation.
+  const runToolCall = async (call: ToolCall, conversation: Message[], loopHits: string[]) => {
+      toolCalls++;
+      const repeatedCall = loop.recordCall(call.function.name, call.function.arguments);
+      if (repeatedCall) loopHits.push(repeatedCall);
+      const started_at = new Date().toISOString(),
+        start = performance.now();
+      let output: { ok: boolean; result?: unknown; error?: string };
+      let testResult: TestResult | undefined;
+      let args: unknown;
+      try {
+        args = JSON.parse(call.function.arguments);
+        if (!args || typeof args !== "object" || Array.isArray(args))
+          throw new Error("工具参数必须是对象");
+        if (writeTools.has(call.function.name)) {
+          verified = false;
+          // Conservatively invalidate previous verification, even if the write later fails.
+          testHistory.revision++;
+        }
+        const result = mcp
+          ? await mcp.callTool(
+              call.function.name,
+              args as Record<string, unknown>,
+            )
+          : await executeTool(
+              workspace.projectDir,
+              call.function.name,
+              args as Record<string, unknown>,
+              { testConfig, docs: options.docs },
+            );
+        if (writeTools.has(call.function.name)) {
+          successfulWrites++;
+          loop.recordWrite();
+        }
+        const target = (args as Record<string, unknown>).relative_path;
+        if (typeof target === "string") {
+          if (call.function.name === "read_file") digest.readFiles.add(target);
+          if (writeTools.has(call.function.name))
+            digest.editedFiles.set(target, (digest.editedFiles.get(target) ?? 0) + 1);
+        }
+        if (call.function.name === "run_tests") {
+          const r = result as TestResult;
+          testResult = r;
+          // A partial run can give quick feedback but never proves the current code.
+          if (r.scope !== "partial") verified = r.exit_code === 0 && !r.time_out;
+        }
+        output = { ok: true, result };
+      } catch (error) {
+        toolErrors++;
+        output = { ok: false, error: String(error) };
+        if (call.function.name === "run_tests") {
+          const selected = args && typeof args === "object" && ("target" in args || "name_pattern" in args);
+          if (!selected) verified = false;
+          testResult = { exit_code: null, time_out: false, stdout: "", stderr: String(error), scope: selected ? "partial" : "full" };
+        }
+      }
+      if (testResult) {
+        await testHistory.record("agent", modelRound, testResult, started_at, start);
+        if (testResult.scope !== "partial") {
+          const summary = summarizeTest(testResult);
+          const repeatedTest = loop.recordTest(JSON.stringify([summary.status, summary.counts, [...summary.failed_test_names].sort()]));
+          if (repeatedTest) loopHits.push(repeatedTest);
+        }
+      }
+      await fs.appendFile(
+        path.join(workspace.taskDir, "trace.jsonl"),
+        JSON.stringify({
+          task_id: workspace.id,
+          round: modelRound,
+          tool_call_id: call.id,
+          started_at,
+          duration: (performance.now() - start) / 1000,
+          tool: call.function.name,
+          arguments: call.function.arguments,
+          output,
+        }) + "\n",
+      );
+      // trace.jsonl above keeps the full output; the context gets a shortened copy.
+      conversation.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: JSON.stringify(features.truncate ? shrinkForContext(output) : output),
+      });
+      console.log(
+        `${call.function.name}: ${output.ok ? "完成" : output.error}`,
+      );
+  };
+  try {
+    if (setup && (setup.exit_code !== 0 || setup.time_out)) {
+      reason = "setup_error";
+      throw new Error(`准备命令失败（${setup.time_out ? "超时" : `退出码 ${setup.exit_code}`}），输出见 setup.log`);
+    }
+    console.log("运行修复前基线测试……");
+    await recordedTests("baseline");
+    if (options.mcp) {
+      const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
+      mcp = new MCPClient(
+        new URL(`./mcp/server.${extension}`, import.meta.url),
+        workspace.projectDir,
+        undefined,
+        { testConfig, docs: { indexPath: options.docs?.indexPath } },
+      );
+      modelTools = await mcp.listTools();
+    }
+    // Offer search_docs only when there is something to search: every extra tool costs context and choice accuracy.
+    const docsAvailable = features.docs && await hasDocs(workspace.projectDir, options.docs);
+    if (!docsAvailable) modelTools = modelTools.filter((tool) => tool.name !== "search_docs");
+    docsOffered = docsAvailable;
+    if (strategy === "plan-execute") {
+      const baselineRun = testHistory.runs.find((run) => run.phase === "baseline");
+      const outcome = await runPlanExecute({
+        task: messages[1].content!,
+        fixedContext: messages.slice(2),
+        baselineSummary: baselineRun
+          ? `${baselineRun.status}；通过 ${baselineRun.counts.passed ?? "未知"}，失败 ${baselineRun.counts.failed ?? "未知"}${baselineRun.failed_test_names.length ? `；失败用例：${baselineRun.failed_test_names.slice(0, 10).join("、")}` : ""}`
+          : "未运行",
+        taskDir: workspace.taskDir,
+        workspaceTools: modelTools,
+        callModel,
+        runToolCall,
+        onLoop,
+        roundsLeft: () => maxRounds - modelRound,
+        harnessTests,
+        editedFiles: () => digest.editedFiles,
+        finalIssues: async () => findTestTampering(baseline, await snapshotFiles(workspace.projectDir)),
+        isVerified: () => verified,
+        limits: { ...defaultPlanLimits, ...options.planLimits },
+      });
+      status = outcome.status;
+      reason = outcome.reason;
+      planStats = outcome.stats;
+    } else for (let round = 0; round < maxRounds; round++) {
+      const message = await callModel(messages, modelTools);
       messages.push(message);
       if (!message.tool_calls?.length) {
         console.log(message.content ?? "");
@@ -357,92 +497,7 @@ export async function runAgent(options: AgentOptions = {}) {
         break;
       }
       const loopHits: string[] = [];
-      for (const call of message.tool_calls) {
-        toolCalls++;
-        const repeatedCall = loop.recordCall(call.function.name, call.function.arguments);
-        if (repeatedCall) loopHits.push(repeatedCall);
-        const started_at = new Date().toISOString(),
-          start = performance.now();
-        let output: { ok: boolean; result?: unknown; error?: string };
-        let testResult: TestResult | undefined;
-        let args: unknown;
-        try {
-          args = JSON.parse(call.function.arguments);
-          if (!args || typeof args !== "object" || Array.isArray(args))
-            throw new Error("工具参数必须是对象");
-          if (writeTools.has(call.function.name)) {
-            verified = false;
-            // Conservatively invalidate previous verification, even if the write later fails.
-            testHistory.revision++;
-          }
-          const result = mcp
-            ? await mcp.callTool(
-                call.function.name,
-                args as Record<string, unknown>,
-              )
-            : await executeTool(
-                workspace.projectDir,
-                call.function.name,
-                args as Record<string, unknown>,
-                { testConfig, docs: options.docs },
-              );
-          if (writeTools.has(call.function.name)) {
-            successfulWrites++;
-            loop.recordWrite();
-          }
-          const target = (args as Record<string, unknown>).relative_path;
-          if (typeof target === "string") {
-            if (call.function.name === "read_file") digest.readFiles.add(target);
-            if (writeTools.has(call.function.name))
-              digest.editedFiles.set(target, (digest.editedFiles.get(target) ?? 0) + 1);
-          }
-          if (call.function.name === "run_tests") {
-            const r = result as TestResult;
-            testResult = r;
-            // A partial run can give quick feedback but never proves the current code.
-            if (r.scope !== "partial") verified = r.exit_code === 0 && !r.time_out;
-          }
-          output = { ok: true, result };
-        } catch (error) {
-          toolErrors++;
-          output = { ok: false, error: String(error) };
-          if (call.function.name === "run_tests") {
-            const selected = args && typeof args === "object" && ("target" in args || "name_pattern" in args);
-            if (!selected) verified = false;
-            testResult = { exit_code: null, time_out: false, stdout: "", stderr: String(error), scope: selected ? "partial" : "full" };
-          }
-        }
-        if (testResult) {
-          await testHistory.record("agent", round + 1, testResult, started_at, start);
-          if (testResult.scope !== "partial") {
-            const summary = summarizeTest(testResult);
-            const repeatedTest = loop.recordTest(JSON.stringify([summary.status, summary.counts, [...summary.failed_test_names].sort()]));
-            if (repeatedTest) loopHits.push(repeatedTest);
-          }
-        }
-        await fs.appendFile(
-          path.join(workspace.taskDir, "trace.jsonl"),
-          JSON.stringify({
-            task_id: workspace.id,
-            round: round + 1,
-            tool_call_id: call.id,
-            started_at,
-            duration: (performance.now() - start) / 1000,
-            tool: call.function.name,
-            arguments: call.function.arguments,
-            output,
-          }) + "\n",
-        );
-        // trace.jsonl above keeps the full output; the context gets a shortened copy.
-        messages.push({
-          role: "tool",
-          tool_call_id: call.id,
-          content: JSON.stringify(features.truncate ? shrinkForContext(output) : output),
-        });
-        console.log(
-          `${call.function.name}: ${output.ok ? "完成" : output.error}`,
-        );
-      }
+      for (const call of message.tool_calls) await runToolCall(call, messages, loopHits);
       // After all results of this turn, so the warning never splits a call from its result.
       if (onLoop(loopHits)) { status = "failed"; reason = "loop_detected"; break; }
     }
@@ -533,7 +588,7 @@ export async function runAgent(options: AgentOptions = {}) {
       text: messages[1].content!, source: workspace.source, mode,
       initial_fingerprint: initialFingerprint,
       options: { max_rounds: maxRounds, mcp: Boolean(options.mcp), apply: Boolean(options.apply), replay_source: replay?.directory ?? null, features,
-        workspace: workspace.mode, setup_command: options.setupCommand ?? null, test_config: testConfig },
+        workspace: workspace.mode, setup_command: options.setupCommand ?? null, test_config: testConfig, strategy },
     },
     timing: { started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - runStart) },
     termination: { reason, error: errorMessage, verified, plan, test_tampering: testTampering },
@@ -544,6 +599,7 @@ export async function runAgent(options: AgentOptions = {}) {
       model_requests: { retries: modelCalls.retries, context_overflow_retries: modelCalls.overflowRetries, retry_errors: modelCalls.errors.slice(-5) },
       loop: { guard: features.loopGuard, warnings: loopStats.warnings, detections: loopStats.detections },
       docs: { offered: docsOffered, index: options.docs?.indexPath ?? null },
+      plan_execute: planStats,
     },
     tests: testHistory.summary(),
     changes: changeSummary(diff.changes),

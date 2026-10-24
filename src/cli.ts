@@ -10,6 +10,22 @@ import { chunkPages } from "./rag/chunker.js";
 import { embed, queryPrompt } from "./rag/embedding.js";
 import { loadIndex, search } from "./rag/retriever.js";
 import type { Chunk, VectorIndex } from "./types.js";
+function parseStrategy(value?: string) {
+  if (value === undefined || value === "react" || value === "plan-execute") return value;
+  throw new Error("--strategy 只能是 react 或 plan-execute");
+}
+function parsePlanLimits(values: { "step-rounds"?: string; "max-replans"?: string }) {
+  const limits: { stepRounds?: number; maxReplans?: number } = {};
+  const read = (name: string, value: string | undefined, min: number) => {
+    if (value === undefined) return undefined;
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < min) throw new Error(`--${name} 必须是不小于 ${min} 的整数`);
+    return n;
+  };
+  limits.stepRounds = read("step-rounds", values["step-rounds"], 1);
+  limits.maxReplans = read("max-replans", values["max-replans"], 0);
+  return Object.fromEntries(Object.entries(limits).filter(([, v]) => v !== undefined));
+}
 function parseWorkspace(value?: string) {
   if (value === undefined || value === "copy" || value === "git") return value;
   throw new Error("--workspace 只能是 copy 或 git");
@@ -30,11 +46,12 @@ function parseTestConfig(values: { "test-command"?: string; "test-timeout"?: str
   return config;
 }
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "docs-index": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "docs-index": { type: "string" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" } } });
   const [command, action, argument] = positionals;
   if (command === "agent") {
     const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values),
-      workspace: parseWorkspace(values.workspace), setupCommand: values["setup-command"], testConfig: parseTestConfig(values), stream: values.stream, docs: { indexPath: values["docs-index"] } });
+      workspace: parseWorkspace(values.workspace), setupCommand: values["setup-command"], testConfig: parseTestConfig(values), stream: values.stream, docs: { indexPath: values["docs-index"] },
+      strategy: parseStrategy(values.strategy), planLimits: parsePlanLimits(values) });
     if (report.status !== "passed") process.exitCode = 1;
   } else if (command === "swe") {
     if (!action) throw new Error("用法：npm run swe -- <instance_id> --pro-dir <SWE-bench_Pro-os 目录>（需要 Docker）");

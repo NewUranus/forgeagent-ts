@@ -11,6 +11,7 @@
 - **手写 MCP**：工具既可在进程内执行，也可通过自己实现的 stdio JSON-RPC 服务端（`--mcp`）动态发现和调用。
 - **上下文工程**：滑动窗口（不拆开工具调用与结果）、工具输出截断、规则/模型摘要、仓库概览、项目约定文件，每项都有开关可做消融对比。
 - **可靠的模型调用**：429/5xx/网络错误按指数退避加随机抖动重试并尊重 `Retry-After`；服务端报上下文超限时缩小窗口重发；可选流式输出（手写 SSE 解析）；重复操作检测先警告、再终止。
+- **两种执行策略**：默认 ReAct 工具循环（模型自己维护计划）；`--strategy plan-execute` 时规划器先探索再提交带验收条件的步骤，执行器逐步在独立上下文中完成，由程序验收，失败时有上限地重新规划。
 - **文档检索（RAG）**：`search_docs` 工具对项目文档做 BM25 检索，配置向量索引时与向量检索用 RRF 融合；只在有文档时提供给模型，并有 recall@k / MRR 评测。
 - **结构化运行报告**：修复前后测试对比、修复/回归的用例、轮数、工具调用、token 用量。
 
@@ -59,6 +60,7 @@ flowchart LR
 | 测试保护（入口拦截 + 出口校验） | `src/guard.ts` |
 | 模型请求：重试、流式（SSE）、错误分类 | `src/model/` |
 | 重复检测 | `src/loop.ts` |
+| Plan-and-Execute 策略 | `src/strategy/plan-execute.ts` |
 | SWE-bench Pro 适配 | `src/bench/swe-pro.ts` |
 | 上下文工程：窗口、截断、摘要、仓库概览 | `src/context/`、`src/features.ts` |
 | MCP 客户端 / 服务端 | `src/mcp/` |
@@ -135,6 +137,20 @@ npm run swe -- instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-
 
 任务说明与镜像来自 `tasks/swe-bench-pro/<name>/` 的 `instruction.md` 和 `metadata.json`（需要 `docker_image`）。**本机未安装 Docker，这条链路只验证了命令构造、解析和判定逻辑，尚未端到端运行。**
 
+## 执行策略：ReAct 与 Plan-and-Execute
+
+**ReAct（默认）**：一个工具循环，每轮模型决定调用哪些工具、看结果再决定下一步；计划由模型通过 `update_plan` 自己维护，程序只检查“同时最多一个进行中”和“结束时全部完成”。
+
+**Plan-and-Execute**（`--strategy plan-execute`）：
+
+1. **规划**：规划器只能用只读工具（列文件、读文件、搜索、跑测试）先了解项目，再调用 `submit_plan` 提交 2–8 个步骤，每步包含目标、完成标准和验收方式——`full_tests`（全量测试）、`tests:<测试文件>`（指定测试）或 `none`。计划由程序校验（字段、验收格式、步骤数、id 不重复），无效时把错误返回给规划器重交；规划阶段调用写入工具会被拒绝。
+2. **执行**：每个步骤一个**全新的对话**，只包含任务、整个计划（标出当前步骤）和已完成步骤的交接说明（总结、改动文件、验收结果），不带之前步骤的完整记录。执行器用完整工具集，完成时调用 `complete_step`，做不了就 `report_blocked`；每步有轮数上限（`--step-rounds`，默认 8）。
+3. **验收**：`complete_step` 之后由**程序**按验收方式跑测试（记录为 `verify` 阶段），模型说完成不算数；第一次不通过把失败输出反馈给执行器，第二次不通过视为步骤失败。
+4. **重新规划**：步骤受阻、超出轮数或两次验收失败时，重新规划器拿到当前计划、交接说明和失败原因，只规划剩余工作（已完成步骤保留）；次数上限 `--max-replans`（默认 2），超出以 `replan_limit` 结束。
+5. **最终检查**：所有步骤完成后，程序再跑一次全量测试并做测试改动检查（与 ReAct 相同）；不通过也会触发重新规划，而不是直接报成功。
+
+所有角色的模型调用共用一个连续的轮次编号，所以日志、统计和回放与 ReAct 一致；默认总轮数为 30（`--max-rounds` 可改）。报告 `statistics.plan_execute` 记录计划版本数、重新规划次数、最终检查次数，以及每步的轮数、验收次数、结果和总结。mock 模式只演示 ReAct，不支持此策略。两种策略孰优孰劣尚无评测数据：小 bug 用 ReAct 可能更省，多文件长任务才可能体现分步的优势。
+
 ## 模型调用与重复检测
 
 **重试**：429、408、409、425、5xx 和网络错误（含超时）会重试，最多 `MODEL_MAX_RETRIES` 次（默认 3）。等待时间是“full jitter”：在 `min(MODEL_RETRY_MAX_MS, MODEL_RETRY_BASE_MS × 2^n)` 内取随机值（默认基数 1 秒、上限 30 秒），并且不早于服务端 `Retry-After`；服务端要求等待超过 2 分钟时直接失败。400、401、403、404 不重试。每轮的重试次数写入 `model/round-*/meta.json`，汇总在 `statistics.model_requests`；模型摘要请求同样走重试。
@@ -168,7 +184,7 @@ Agent 在第一次模型调用前自动对工作副本运行一次基线测试�
 
 Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺失用量为 `null`；部分响应有用量时记录已知部分，并通过 `reported_calls` 和 `complete` 标明覆盖情况。Mock、自定义回复和回放不计入真实 API 调用，历史录制的 token 不算成本次消耗。初始指纹覆盖复制规则允许的文件，计算于基线测试前，不包含被排除的依赖、凭证和 Git 目录，也不代表完整运行环境。
 
-只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`context_limit`、`server_context_limit`、`loop_detected`、`model_error`、`execution_error`、`setup_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。`termination.test_tampering` 列出相对基线被改动的测试文件和测试配置；git 模式下 `branch`、`applied_commit` 给出结果所在分支和提交；`setup` 记录准备命令的退出码。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
+只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`planning_failed`、`replan_limit`、`context_limit`、`server_context_limit`、`loop_detected`、`model_error`、`execution_error`、`setup_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。`termination.test_tampering` 列出相对基线被改动的测试文件和测试配置；git 模式下 `branch`、`applied_commit` 给出结果所在分支和提交；`setup` 记录准备命令的退出码。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
 
 ## 上下文工程
 

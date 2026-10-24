@@ -72,7 +72,8 @@ export function summarizeTest(result: TestResult) {
   };
 }
 
-export type TestPhase = "baseline" | "agent" | "apply";
+// verify: tests the harness runs itself (plan-and-execute step acceptance and final check).
+export type TestPhase = "baseline" | "agent" | "verify" | "apply";
 export type TestRun = ReturnType<typeof summarizeTest> & {
   phase: TestPhase; scope: "full" | "partial"; round: number | null; revision: number; started_at: string; duration_ms: number;
 };
