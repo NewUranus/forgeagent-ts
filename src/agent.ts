@@ -2,12 +2,14 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ROOT, modelConfig, postJson, contextConfig } from "./config.js";
 import {
+  commitWorkspace,
   createWorkspace,
   diffWorkspace,
   projectPath,
   snapshotFiles,
+  type WorkspaceMode,
 } from "./workspace.js";
-import { tools, executeTool, runTests, writeTools } from "./tools.js";
+import { tools, executeTool, runProcess, runTests, writeTools, type TestConfig } from "./tools.js";
 import type { Message, TaskStatus, TestResult } from "./types.js";
 import { MCPClient } from "./mcp/client.js";
 import { logModelRound } from "./model-log.js";
@@ -30,6 +32,12 @@ export interface AgentOptions {
   base?: string;
   reply?: (messages: Message[]) => Promise<Message>;
   features?: Partial<AgentFeatures>;
+  /** "git": worktree on branch forge/<task-id>; --apply then commits there instead of writing the source. */
+  workspace?: WorkspaceMode;
+  /** Shell command run in the working copy before the baseline, e.g. "npm ci". */
+  setupCommand?: string;
+  /** Custom test command and/or Docker sandbox, used by baseline, tools and apply validation alike. */
+  testConfig?: TestConfig;
 }
 const mock = (round: number): Message => {
   const operations = [
@@ -95,7 +103,16 @@ export async function runAgent(options: AgentOptions = {}) {
   const workspace = await createWorkspace(
     options.source ?? path.join(ROOT, "playground"),
     base,
+    options.workspace,
   );
+  const testConfig = options.testConfig ?? {};
+  // Setup runs before the fingerprint and baseline, so files it changes (lockfiles) are not counted as agent edits.
+  // In a sandbox it runs in the same image, with network, so dependencies match the test environment.
+  const setup = options.setupCommand
+    ? { command: options.setupCommand, ...(await runProcess(workspace.projectDir, ["sh", "-c", options.setupCommand], 600000,
+        testConfig.sandbox && { ...testConfig.sandbox, network: true })) }
+    : null;
+  if (setup) await fs.writeFile(path.join(workspace.taskDir, "setup.log"), `${setup.stdout}\n${setup.stderr}`);
   const initialFingerprint = await fingerprint(workspace.projectDir);
   const testHistory = new TestHistory(workspace.taskDir);
   // Every file, not only some extensions: diffs, apply and the test-tampering check all compare against it.
@@ -131,16 +148,21 @@ export async function runAgent(options: AgentOptions = {}) {
   let reason = "round_limit", errorMessage: string | null = null;
   let toolCalls = 0, successfulWrites = 0, toolErrors = 0;
   let applied = false;
+  let appliedCommit: string | null = null;
   const recordedTests = async (phase: "baseline" | "apply") => {
     const started = new Date().toISOString(), start = performance.now();
     let result: TestResult;
-    try { result = await runTests(workspace.projectDir); }
+    try { result = await runTests(workspace.projectDir, undefined, {}, testConfig); }
     catch (error) { result = { exit_code: null, time_out: false, stdout: "", stderr: String(error) }; }
     await testHistory.record(phase, null, result, started, start);
     return result;
   };
   let modelTools = tools;
   try {
+    if (setup && (setup.exit_code !== 0 || setup.time_out)) {
+      reason = "setup_error";
+      throw new Error(`准备命令失败（${setup.time_out ? "超时" : `退出码 ${setup.exit_code}`}），输出见 setup.log`);
+    }
     console.log("运行修复前基线测试……");
     await recordedTests("baseline");
     if (options.mcp) {
@@ -148,6 +170,8 @@ export async function runAgent(options: AgentOptions = {}) {
       mcp = new MCPClient(
         new URL(`./mcp/server.${extension}`, import.meta.url),
         workspace.projectDir,
+        undefined,
+        testConfig,
       );
       modelTools = await mcp.listTools();
     }
@@ -304,6 +328,7 @@ export async function runAgent(options: AgentOptions = {}) {
                 workspace.projectDir,
                 call.function.name,
                 args as Record<string, unknown>,
+                { testConfig },
               );
           if (writeTools.has(call.function.name)) successfulWrites++;
           const target = (args as Record<string, unknown>).relative_path;
@@ -357,7 +382,7 @@ export async function runAgent(options: AgentOptions = {}) {
   } catch (error) {
     status = "error";
     if (error instanceof ContextBudgetExceededError) reason = "context_limit";
-    else if (reason !== "model_error") reason = "execution_error";
+    else if (reason !== "model_error" && reason !== "setup_error") reason = "execution_error";
     errorMessage = String(error);
     await fs.writeFile(
       path.join(workspace.taskDir, "error.txt"),
@@ -380,6 +405,12 @@ export async function runAgent(options: AgentOptions = {}) {
       if (!verified) {
         status = validation.time_out ? "timeout" : "failed";
         reason = "apply_validation_failed";
+      } else if (workspace.mode === "git") {
+        // The worktree already is the source repository's branch: commit there, never touch the user's checkout.
+        reason = "apply_error";
+        appliedCommit = diff.changes.length ? await commitWorkspace(workspace.projectDir, `ForgeAgent ${workspace.id}: ${messages[1].content}`) : null;
+        applied = true;
+        reason = "completed";
       } else {
         for (const change of diff.changes) {
           const target = await projectPath(workspace.source, change.path, true);
@@ -425,11 +456,16 @@ export async function runAgent(options: AgentOptions = {}) {
     workspace: workspace.projectDir,
     changed_files: diff.changes.map((c) => c.path),
     applied,
+    // git mode: where the result was committed; copy mode applies to the source directory instead.
+    branch: workspace.branch,
+    applied_commit: appliedCommit,
+    setup: setup && { command: setup.command, exit_code: setup.exit_code, time_out: setup.time_out },
     schema_version: 2,
     task: {
       text: messages[1].content!, source: workspace.source, mode,
       initial_fingerprint: initialFingerprint,
-      options: { max_rounds: maxRounds, mcp: Boolean(options.mcp), apply: Boolean(options.apply), replay_source: replay?.directory ?? null, features },
+      options: { max_rounds: maxRounds, mcp: Boolean(options.mcp), apply: Boolean(options.apply), replay_source: replay?.directory ?? null, features,
+        workspace: workspace.mode, setup_command: options.setupCommand ?? null, test_config: testConfig },
     },
     timing: { started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - runStart) },
     termination: { reason, error: errorMessage, verified, plan, test_tampering: testTampering },

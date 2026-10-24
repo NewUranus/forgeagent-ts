@@ -1,10 +1,33 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { createTwoFilesPatch } from "diff";
 export const ignored = new Set(["node_modules", ".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".DS_Store", "dist"]);
 export function ignoreName(name: string) { return ignored.has(name) || name === ".env" || name.startsWith(".env.") || name.endsWith(".bak"); }
+const execFileAsync = promisify(execFile);
+export const git = async (cwd: string, args: string[]) =>
+  (await execFileAsync("git", ["-C", cwd, ...args], { maxBuffer: 64 * 1024 * 1024 })).stdout;
+
+// In a git worktree, list tracked and untracked-but-not-ignored files, so .gitignore keeps
+// dependencies and build output out of diffs, snapshots and searches.
+async function gitFiles(root: string): Promise<string[] | null> {
+  if (!(await fs.lstat(path.join(root, ".git")).then(() => true, () => false))) return null;
+  let output: string;
+  try { output = await git(root, ["ls-files", "-z", "--cached", "--others", "--exclude-standard"]); }
+  catch { return null; }
+  const result: string[] = [];
+  for (const name of new Set(output.split("\0").filter(Boolean))) {
+    if (name.split("/").some(ignoreName)) continue;
+    // Deleted tracked files are still in the index; symlinks are skipped like in the directory walk.
+    if ((await fs.lstat(path.join(root, name)).catch(() => null))?.isFile()) result.push(name);
+  }
+  return result.sort();
+}
 export async function listFiles(root: string): Promise<string[]> {
+  const tracked = await gitFiles(root);
+  if (tracked) return tracked;
   const result: string[] = [];
   async function walk(dir: string) {
     for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
@@ -31,15 +54,40 @@ export async function projectPath(root: string, relative: string, write = false)
   }
   return target;
 }
-export async function createWorkspace(source: string, base: string) {
+export type WorkspaceMode = "copy" | "git";
+/**
+ * "copy" copies the source minus dependencies and secrets. "git" adds a worktree on a new
+ * branch forge/<task-id>: only committed content, .gitignore respected, results land as a commit.
+ */
+export async function createWorkspace(source: string, base: string, mode: WorkspaceMode = "copy") {
   source = await fs.realpath(source);
   const id = `${new Date().toISOString().replace(/[:.]/g, "-")}_${randomUUID().slice(0, 8)}`;
   const taskDir = path.resolve(base, "workspace", id);
   const projectDir = path.join(taskDir, "project");
   if (projectDir.startsWith(source + path.sep)) throw new Error("工作副本不能位于源项目内部");
+  if (mode === "git") {
+    const top = await git(source, ["rev-parse", "--show-toplevel"]).then(
+      (out) => fs.realpath(out.trim()),
+      () => { throw new Error("git 模式要求源目录是 git 仓库"); },
+    );
+    if (top !== source) throw new Error(`git 模式要求指向仓库根目录：${top}`);
+    if ((await git(source, ["status", "--porcelain", "--untracked-files=no"])).trim())
+      throw new Error("源仓库有未提交的修改；git 模式只包含已提交的内容，请先提交，或改用 copy 模式");
+    const branch = `forge/${id}`;
+    await fs.mkdir(taskDir, { recursive: true });
+    await git(source, ["worktree", "add", "--quiet", "-b", branch, projectDir, "HEAD"]);
+    return { id, taskDir, projectDir, source, mode, branch };
+  }
   await fs.mkdir(taskDir, { recursive: true });
   await fs.cp(source, projectDir, { recursive: true, filter: async p => !ignoreName(path.basename(p)) && !(await fs.lstat(p)).isSymbolicLink() });
-  return { id, taskDir, projectDir, source };
+  return { id, taskDir, projectDir, source, mode, branch: null as string | null };
+}
+
+/** Commit every change in a git worktree on its own branch; the user merges it, nothing touches their checkout. */
+export async function commitWorkspace(projectDir: string, message: string) {
+  await git(projectDir, ["add", "-A"]);
+  await git(projectDir, ["-c", "user.name=ForgeAgent", "-c", "user.email=forgeagent@localhost", "commit", "--quiet", "--no-verify", "-m", message]);
+  return (await git(projectDir, ["rev-parse", "HEAD"])).trim();
 }
 /** Snapshot every copied file as bytes, so later diffs and checks see all file types. */
 export async function snapshotFiles(root: string): Promise<Map<string, Buffer>> {

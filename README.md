@@ -5,8 +5,8 @@
 和常见的 Agent 示例相比，它更关心“结果能不能信”：
 
 - **严格的完成判定**：只有“计划全部完成”且“最后一次写入之后测试通过”才算成功；任何写入都会让之前的测试结果作废，模型说“完成了”不算数。
-- **隔离的工作副本**：每次运行复制一份项目，只在副本里改；`--apply` 回写前会重新跑测试并检查源文件是否被别人改过。
-- **禁止改测试**：工具层拒绝写入测试文件，防止模型靠改测试“通过”。
+- **隔离的工作副本**：每次运行复制一份项目（或在 git 仓库上建 worktree 分支），只在副本里改；`--apply` 回写前会重新跑测试并检查源文件是否被别人改过，git 模式则提交到独立分支。测试可以放进 Docker 容器，默认断网、限制资源。
+- **禁止改测试，两层防护**：入口——工具拒绝写测试文件、`conftest.py` 等测试配置，以及 `package.json` 的 test 脚本、pytest 配置段；出口——结束检查对比基线中的每个文件，测试或测试配置有任何变化都不能结束，不管改动来自哪里。
 - **可离线回放**：每轮真实的模型请求和响应都落盘，可以不调 API、不花钱地重放整个修复过程。
 - **手写 MCP**：工具既可在进程内执行，也可通过自己实现的 stdio JSON-RPC 服务端（`--mcp`）动态发现和调用。
 - **上下文工程**：滑动窗口（不拆开工具调用与结果）、工具输出截断、规则/模型摘要、仓库概览、项目约定文件，每项都有开关可做消融对比。
@@ -53,7 +53,9 @@ flowchart LR
 |---|---|
 | Agent 循环、结束检查、回写 | `src/agent.ts` |
 | 工具定义与执行、测试运行器 | `src/tools.ts` |
-| 工作副本、路径限制、diff | `src/workspace.ts` |
+| 工作副本（复制 / git worktree）、路径限制、diff | `src/workspace.ts` |
+| 测试保护（入口拦截 + 出口校验） | `src/guard.ts` |
+| SWE-bench Pro 适配 | `src/bench/swe-pro.ts` |
 | 上下文工程：窗口、截断、摘要、仓库概览 | `src/context/`、`src/features.ts` |
 | MCP 客户端 / 服务端 | `src/mcp/` |
 | 回放、每轮日志、运行报告 | `src/replay.ts`、`src/model-log.ts`、`src/report.ts` |
@@ -72,7 +74,7 @@ npm run agent -- --mock --mcp
 npm run runner
 ```
 
-Mock 模式无需 API key：生成计划、列举文件、运行测试、结束任务；不会假装调用模型。`runner` 是独立的确定性修复演示，在工作副本中注入错误，经过语法错误、测试失败、正确修复，报告存入 `runs/latest.json`。
+Mock 模式无需 API key，演示工具调用流程：生成计划、列举文件、运行测试、尝试结束；不修改代码，也不会假装调用模型。默认 playground 有缺陷，结束检查不通过，所以 mock 运行会以 `limit_reached` 结束——这正是严格判定的体现。`runner` 是不调用模型的确定性修复演示：把 `stats_helpers.ts` 的 `count()` 设为已知缺陷（与 playground 的真实缺陷相同），依次尝试语法错误、错误修复、正确修复，每次都跑测试，报告存入 `runs/latest.json`。
 
 ## 回放真实模型记录
 
@@ -99,9 +101,35 @@ npm run agent -- --source /absolute/path/to/project --max-rounds 10
 
 默认目标是 TypeScript `playground`，六个测试与原 Python 示例对应。`null` 对应 Python 的 `None`。也支持 `--source ../ForgeAgent/playground`：控制程序仍是 TypeScript，目标项目测试通过 `python3 -m pytest -v` 执行（需要安装 pytest）。原项目始终先复制到新工作目录。
 
-每次运行的全部产物归档到 `workspace/<task-id>/`：`project/` 是代码副本，`trace.jsonl`、`plan.json`、`plans.jsonl`、`changes.patch` 和 `report.json` 是运行记录。异常信息保存在同目录的 `error.txt`。工具只访问 `project/`；报告的 `task_dir` 指向任务目录，`workspace` 指向代码副本。旧任务产物保留原位置，新运行采用此布局。默认只修改副本；`--apply` 才回写文本修改，且需要最终测试通过、再次验证和源文件冲突检查。写入之后旧测试结果失效。没有测试或没有验证，不判成功。任务最大轮数默认 10。
+每次运行的全部产物归档到 `workspace/<task-id>/`：`project/` 是代码副本，`trace.jsonl`、`plan.json`、`plans.jsonl`、`changes.patch` 和 `report.json` 是运行记录。异常信息保存在同目录的 `error.txt`。工具只访问 `project/`；报告的 `task_dir` 指向任务目录，`workspace` 指向代码副本。旧任务产物保留原位置，新运行采用此布局。默认只修改副本；`--apply` 才回写，覆盖所有文件（包括新建、删除和二进制文件），且需要最终测试通过、再次验证和源文件冲突检查（按字节比较，区分空文件和不存在）。写入之后旧测试结果失效。没有测试或没有验证，不判成功。任务最大轮数默认 10。
 
-工作副本是文件隔离，不是操作系统安全沙箱。测试代码仍以本机用户权限执行，不适合不可信代码。测试默认 30 秒超时，MCP 请求默认 40 秒，模型 HTTP 请求默认 60 秒。
+默认的工作副本只是文件隔离，测试代码以本机用户权限执行；不可信代码请用下文的 Docker 沙箱。测试默认 30 秒超时（`--test-timeout` 可改），MCP 请求默认 40 秒，模型 HTTP 请求默认 60 秒。
+
+## 执行环境
+
+| 参数 | 作用 |
+|---|---|
+| `--workspace copy\|git` | `copy`（默认）复制项目，排除依赖和凭证；`git` 在源仓库上建 worktree，分支名 `forge/<task-id>`，只包含已提交内容，文件列表遵守 `.gitignore`；源仓库有未提交修改或不是仓库根目录时拒绝 |
+| `--apply` | copy 模式写回源目录；git 模式提交到 `forge/<task-id>` 分支，不碰用户的检出，由用户自己合并 |
+| `--setup-command "npm ci"` | 在基线测试前于工作副本中执行（10 分钟超时），产生的文件不算 Agent 的改动；失败时以 `setup_error` 结束，不调用模型 |
+| `--test-command "npm test"` | 用自定义命令代替自动识别；此时 `run_tests` 只能跑全量 |
+| `--sandbox docker --image node:24` | 测试（和准备命令）在容器中运行：项目挂载到 `/workspace`，`--network none`、2 CPU、2 GB 内存、512 进程上限、`no-new-privileges`；超时会按容器名 `docker kill` |
+| `--sandbox-network on` | 允许测试联网（默认关闭；准备命令总是联网以便安装依赖） |
+| `--preserve /app/node_modules` | 保留镜像中的目录（匿名卷），用于依赖装在镜像里、但项目目录被挂载覆盖的情况；可重复 |
+
+git worktree 会登记在源仓库中；删除 `workspace/` 下的任务目录后，在源仓库运行 `git worktree prune` 清理登记。
+
+### SWE-bench Pro（需要 Docker）
+
+```bash
+npm run swe -- instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-vf2cf3cbd463b7ad942381f1c6d077626485a1e9e --pro-dir ../SWE-bench_Pro-os
+```
+
+1. 从任务镜像导出 `/app`（排除 `node_modules`、`.git`），缓存在 `swe-sources/<instance_id>`；
+2. Agent 在副本上工作，`run_tests` 用官方 `run_script.sh` 在镜像中运行实例指定的测试文件，镜像里的 `node_modules` 以匿名卷保留；
+3. 结束后再跑一次官方测试，用官方 `parser.py` 解析，FAIL_TO_PASS 与 PASS_TO_PASS 全部通过才算解决（没运行的用例算失败），结果写入 `swe-report.json`。
+
+任务说明与镜像来自 `tasks/swe-bench-pro/<name>/` 的 `instruction.md` 和 `metadata.json`（需要 `docker_image`）。**本机未安装 Docker，这条链路只验证了命令构造、解析和判定逻辑，尚未端到端运行。**
 
 ## 运行报告
 
@@ -118,7 +146,7 @@ Agent 在第一次模型调用前自动对工作副本运行一次基线测试�
 | `statistics` | 模型轮数、完成轮数、真实 API 调用数、请求模型、模型耗时、工具调用和错误次数、成功写入次数、测试执行次数、token 用量 |
 | `tests` | 基线与最近一次后续测试、结果是否仍对应当前代码、前后状态对比、已观察到的修复和回归用例、全部测试摘要 |
 | `termination` | 结束原因、错误信息、最终验证是否通过、计划完成情况 |
-| `changes` | 文件列表、增加/删除行数、是否涉及测试文件 |
+| `changes` | 文件列表（含新建、删除、二进制标记）、增加/删除行数、是否涉及测试文件或测试配置 |
 
 `tests.jsonl` 的 `phase` 区分 `baseline`（基线）、`agent`（工具调用）、`apply`（回写前复验）；测试总数包括这三种阶段，工具调用次数不包括自动执行的基线与复验。每次写入尝试都会使旧测试验证失效，即使写入失败，报告也会保守标记需要重新验证。
 
@@ -126,7 +154,7 @@ Agent 在第一次模型调用前自动对工作副本运行一次基线测试�
 
 Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺失用量为 `null`；部分响应有用量时记录已知部分，并通过 `reported_calls` 和 `complete` 标明覆盖情况。Mock、自定义回复和回放不计入真实 API 调用，历史录制的 token 不算成本次消耗。初始指纹覆盖复制规则允许的文件，计算于基线测试前，不包含被排除的依赖、凭证和 Git 目录，也不代表完整运行环境。
 
-只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`context_limit`、`model_error`、`execution_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
+只有模型结束时计划已完成、最后一次写入后的测试通过，状态才为 `passed`。轮数耗尽统一为 `limit_reached`，不会因为之前测试通过而自动判成功。`termination.reason` 包括 `completed`、`round_limit`、`context_limit`、`model_error`、`execution_error`、`setup_error`、`apply_validation_failed`、`source_conflict` 和 `apply_error`。`termination.test_tampering` 列出相对基线被改动的测试文件和测试配置；git 模式下 `branch`、`applied_commit` 给出结果所在分支和提交；`setup` 记录准备命令的退出码。回写冲突或失败也会保存报告；`applied: false` 表示未完整应用，若文件写入中途失败，仍需依据错误检查源目录。
 
 ## 上下文工程
 

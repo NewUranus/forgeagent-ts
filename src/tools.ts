@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { listFiles, projectPath } from "./workspace.js";
 import { assertTestSettingsUnchanged, isProtected, isTestFile } from "./guard.js";
 import type { TestResult, ToolDefinition } from "./types.js";
@@ -121,51 +122,105 @@ export interface TestSelection {
   target?: string;
   namePattern?: string;
 }
+/** Run tests in a container: the project is mounted read-write, everything else is isolated. */
+export interface SandboxConfig {
+  image: string;
+  /** Where the project is mounted in the container. */
+  workdir?: string;
+  /** Off by default: tests get no network. */
+  network?: boolean;
+  cpus?: string;
+  memory?: string;
+  /** Container paths kept from the image (anonymous volumes), e.g. dependencies under the mounted project. */
+  preserve?: string[];
+  /** Extra read-only mounts, e.g. benchmark scripts. */
+  mounts?: { host: string; container: string }[];
+}
+export interface TestConfig {
+  /** Shell command run in the project directory instead of auto-detection; runs only the full suite. */
+  command?: string;
+  timeoutMs?: number;
+  sandbox?: SandboxConfig;
+}
+
+/** Arguments for `docker run`; kept pure so the isolation flags can be checked without Docker. */
+export function dockerRunArgs(sandbox: SandboxConfig, root: string, name: string, argv: string[]) {
+  const workdir = sandbox.workdir ?? "/workspace";
+  return [
+    "run", "--rm", "--name", name,
+    ...(sandbox.network ? [] : ["--network", "none"]),
+    "--cpus", sandbox.cpus ?? "2", "--memory", sandbox.memory ?? "2g", "--pids-limit", "512",
+    "--security-opt", "no-new-privileges",
+    "-v", `${root}:${workdir}`,
+    ...(sandbox.preserve ?? []).flatMap((dir) => ["-v", dir]),
+    ...(sandbox.mounts ?? []).flatMap((m) => ["-v", `${m.host}:${m.container}:ro`]),
+    "-w", workdir, sandbox.image, ...argv,
+  ];
+}
+
 // A selection runs only part of the suite; the result is marked partial and never counts as final verification.
 export async function runTests(
   root: string,
-  timeout = 30000,
+  timeout?: number,
   selection: TestSelection = {},
+  config: TestConfig = {},
 ): Promise<TestResult> {
-  const files = await listFiles(root);
-  const tests = files.filter((f) => /\.(test|spec)\.(ts|js)$/.test(f));
-  const python =
-    tests.length === 0 && files.some((f) => /(^|\/)test_.*\.py$/.test(f));
-  if (!tests.length && !python)
-    return {
-      exit_code: 2,
-      time_out: false,
-      stdout: "",
-      stderr: "没有找到测试文件",
-    };
+  const limit = timeout ?? config.timeoutMs ?? 30000;
   const { target, namePattern } = selection;
   const scope = target !== undefined || namePattern !== undefined ? "partial" : "full";
-  if (namePattern !== undefined && !namePattern.trim()) throw new Error("name_pattern 不能为空");
-  if (target !== undefined) {
-    // pytest node IDs look like "test_x.py::test_name"; only the file part is a path.
-    const file = target.split("::")[0];
-    if (!python && target.includes("::")) throw new Error("Node 测试的 target 只能是测试文件，按名字筛选请用 name_pattern");
-    // projectPath resolves symlinks (e.g. macOS /var -> /private/var), so compare against the real root.
-    const relative = path.relative(await fs.realpath(root), await projectPath(root, file)).split(path.sep).join("/");
-    if (python ? !/(^|\/)test_.*\.py$/.test(relative) : !tests.includes(relative))
-      throw new Error(`target 不是测试文件：${file}`);
+  let argv: string[];
+  if (config.command) {
+    if (scope === "partial") throw new Error("配置了自定义测试命令时不支持 target/name_pattern，请运行全量测试");
+    argv = ["sh", "-c", config.command];
+  } else {
+    const files = await listFiles(root);
+    const tests = files.filter((f) => /\.(test|spec)\.(ts|js)$/.test(f));
+    const python =
+      tests.length === 0 && files.some((f) => /(^|\/)test_.*\.py$/.test(f));
+    if (!tests.length && !python)
+      return {
+        exit_code: 2,
+        time_out: false,
+        stdout: "",
+        stderr: "没有找到测试文件",
+      };
+    if (namePattern !== undefined && !namePattern.trim()) throw new Error("name_pattern 不能为空");
+    if (target !== undefined) {
+      // pytest node IDs look like "test_x.py::test_name"; only the file part is a path.
+      const file = target.split("::")[0];
+      if (!python && target.includes("::")) throw new Error("Node 测试的 target 只能是测试文件，按名字筛选请用 name_pattern");
+      // projectPath resolves symlinks (e.g. macOS /var -> /private/var), so compare against the real root.
+      const relative = path.relative(await fs.realpath(root), await projectPath(root, file)).split(path.sep).join("/");
+      if (python ? !/(^|\/)test_.*\.py$/.test(relative) : !tests.includes(relative))
+        throw new Error(`target 不是测试文件：${file}`);
+    }
+    // Inside a container the interpreters come from the image, not from this machine.
+    argv = python
+      ? [config.sandbox ? "python3" : (process.env.PYTHON ?? "python3"), "-m", "pytest", "-v", ...(target ? [target] : []), ...(namePattern ? ["-k", namePattern] : [])]
+      : [config.sandbox ? "node" : process.execPath, "--test", ...(namePattern ? [`--test-name-pattern=${namePattern}`] : []), ...(target ? [target] : tests)];
   }
-  const args = python
-    ? ["-m", "pytest", "-v", ...(target ? [target] : []), ...(namePattern ? ["-k", namePattern] : [])]
-    : ["--test", ...(namePattern ? [`--test-name-pattern=${namePattern}`] : []), ...(target ? [target] : tests)];
+  return { ...(await runProcess(root, argv, limit, config.sandbox)), scope };
+}
+
+/**
+ * Run argv in root, or in a container when a sandbox is given. Output keeps the last 200 KB;
+ * on timeout the whole process group is killed, and the container is stopped by name.
+ */
+export async function runProcess(root: string, argv: string[], limit: number, sandbox?: SandboxConfig): Promise<TestResult> {
+  const docker = process.env.DOCKER ?? "docker";
+  const container = `forge-${randomUUID().slice(0, 8)}`;
+  const [command, ...args] = sandbox
+    ? [docker, ...dockerRunArgs(sandbox, await fs.realpath(root), container, argv)]
+    : argv;
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
   return new Promise((resolve) => {
-    const child = spawn(
-      python ? (process.env.PYTHON ?? "python3") : process.execPath,
-      args,
-      {
-        cwd: root,
-        env,
-        detached: process.platform !== "win32",
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    const child = spawn(command, args, {
+      cwd: root,
+      env,
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "",
       stderr = "",
       time_out = false;
@@ -182,14 +237,16 @@ export async function runTests(
           process.kill(-child.pid, "SIGKILL");
         else child.kill("SIGKILL");
       } catch {}
-    }, timeout);
+      // Killing the docker client does not stop the container; stop it by name.
+      if (sandbox) spawn(docker, ["kill", container], { stdio: "ignore" }).on("error", () => {});
+    }, limit);
     child.on("error", (e) => {
       clearTimeout(timer);
-      resolve({ exit_code: null, time_out, stdout, stderr: e.message, scope });
+      resolve({ exit_code: null, time_out, stdout, stderr: e.message });
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      resolve({ exit_code: code, time_out, stdout, stderr, scope });
+      resolve({ exit_code: code, time_out, stdout, stderr });
     });
   });
 }
@@ -316,10 +373,14 @@ function pythonSyntax(file: string, content: string): Promise<string[] | null> {
     child.stdin.end(content);
   });
 }
+export interface ToolContext {
+  testConfig?: TestConfig;
+}
 export async function executeTool(
   root: string,
   name: string,
   args: Record<string, unknown>,
+  context: ToolContext = {},
 ): Promise<unknown> {
   const definition = tools.find((t) => t.name === name);
   if (!definition) throw new Error(`未知工具：${name}`);
@@ -362,7 +423,7 @@ export async function executeTool(
       return runTests(root, undefined, {
         target: optionalString(args, "target"),
         namePattern: optionalString(args, "name_pattern"),
-      });
+      }, context.testConfig);
     case "search_code": {
       const keyword = stringArg(args, "keyword");
       if (!keyword.trim()) throw new Error("关键词不能为空");

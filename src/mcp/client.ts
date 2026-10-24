@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import type { ToolDefinition } from "../types.js";
+import type { TestConfig } from "../tools.js";
 interface Pending { resolve: (value: any) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }
 export class MCPClient {
   private child: ChildProcessWithoutNullStreams;
@@ -9,9 +10,10 @@ export class MCPClient {
   private pending = new Map<number, Pending>();
   private closed = false;
   private exited: Promise<void>;
-  constructor(server: URL, root: string, private timeout = 40000) {
+  constructor(server: URL, root: string, private timeout = 40000, testConfig?: TestConfig) {
     const file = fileURLToPath(server);
-    this.child = spawn(process.execPath, [...(file.endsWith(".ts") ? ["--import", "tsx"] : []), file, "--project-dir", root], { stdio: "pipe" });
+    const configArgs = testConfig ? ["--test-config", JSON.stringify(testConfig)] : [];
+    this.child = spawn(process.execPath, [...(file.endsWith(".ts") ? ["--import", "tsx"] : []), file, "--project-dir", root, ...configArgs], { stdio: "pipe" });
     this.child.stderr.on("data", data => process.stderr.write(data));
     const lines = createInterface({ input: this.child.stdout });
     lines.on("line", line => {
