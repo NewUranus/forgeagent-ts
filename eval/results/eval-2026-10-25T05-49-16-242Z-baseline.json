@@ -1,0 +1,705 @@
+{
+  "schema_version": 1,
+  "label": "baseline",
+  "started_at": "2026-10-25T05:49:16.242Z",
+  "ended_at": "2026-10-25T06:11:11.349Z",
+  "repeat": 3,
+  "config": {
+    "mode": "api",
+    "models": [
+      "qwen3.7-plus"
+    ],
+    "strategy": "react",
+    "max_rounds": 10,
+    "mcp": false,
+    "features": {
+      "context": "window",
+      "truncate": true,
+      "summary": "rule",
+      "repoMap": true,
+      "projectNotes": true,
+      "loopGuard": true,
+      "docs": true
+    }
+  },
+  "totals": {
+    "tasks": 10,
+    "attempts": 30,
+    "passes": 21,
+    "pass_at_1": 0.7,
+    "pass_at_k": {
+      "k": 3,
+      "value": 1
+    },
+    "tasks_solved_once": 10,
+    "avg_tokens": 25525.766666666666
+  },
+  "tasks": [
+    {
+      "task": "display-name-null",
+      "category": "空值处理",
+      "passes": 2,
+      "attempts": 3,
+      "avg_rounds": 8.666666666666666,
+      "avg_tool_calls": 9.666666666666666,
+      "avg_tokens": 24624,
+      "avg_duration_ms": 35678,
+      "failures": {
+        "round_limit": 1
+      }
+    },
+    {
+      "task": "grade-boundaries",
+      "category": "边界条件",
+      "passes": 1,
+      "attempts": 3,
+      "avg_rounds": 9.333333333333334,
+      "avg_tool_calls": 9.333333333333334,
+      "avg_tokens": 28793.666666666668,
+      "avg_duration_ms": 41075.666666666664,
+      "failures": {
+        "round_limit": 2
+      }
+    },
+    {
+      "task": "invoice-rounding",
+      "category": "跨文件调用",
+      "passes": 2,
+      "attempts": 3,
+      "avg_rounds": 8.333333333333334,
+      "avg_tool_calls": 11.333333333333334,
+      "avg_tokens": 26825.333333333332,
+      "avg_duration_ms": 47755,
+      "failures": {
+        "round_limit": 1
+      }
+    },
+    {
+      "task": "leaderboard-mutation",
+      "category": "副作用",
+      "passes": 3,
+      "attempts": 3,
+      "avg_rounds": 7.666666666666667,
+      "avg_tool_calls": 8,
+      "avg_tokens": 20651,
+      "avg_duration_ms": 29804.333333333332,
+      "failures": {}
+    },
+    {
+      "task": "load-all-async",
+      "category": "异步",
+      "passes": 1,
+      "attempts": 3,
+      "avg_rounds": 9.333333333333334,
+      "avg_tool_calls": 9.666666666666666,
+      "avg_tokens": 26886,
+      "avg_duration_ms": 44272.666666666664,
+      "failures": {
+        "round_limit": 2
+      }
+    },
+    {
+      "task": "lru-cache",
+      "category": "数据结构",
+      "passes": 2,
+      "attempts": 3,
+      "avg_rounds": 8.666666666666666,
+      "avg_tool_calls": 8.666666666666666,
+      "avg_tokens": 27527,
+      "avg_duration_ms": 40766.333333333336,
+      "failures": {
+        "round_limit": 1
+      }
+    },
+    {
+      "task": "pagination-last-page",
+      "category": "off-by-one",
+      "passes": 3,
+      "attempts": 3,
+      "avg_rounds": 7.333333333333333,
+      "avg_tool_calls": 7.333333333333333,
+      "avg_tokens": 18914.666666666668,
+      "avg_duration_ms": 30933,
+      "failures": {}
+    },
+    {
+      "task": "retry-errors",
+      "category": "错误处理",
+      "passes": 2,
+      "attempts": 3,
+      "avg_rounds": 8,
+      "avg_tool_calls": 8.333333333333334,
+      "avg_tokens": 24465.333333333332,
+      "avg_duration_ms": 41109.666666666664,
+      "failures": {
+        "round_limit": 1
+      }
+    },
+    {
+      "task": "settings-parsing",
+      "category": "类型转换",
+      "passes": 3,
+      "attempts": 3,
+      "avg_rounds": 9.333333333333334,
+      "avg_tool_calls": 10,
+      "avg_tokens": 29450.333333333332,
+      "avg_duration_ms": 49522.333333333336,
+      "failures": {}
+    },
+    {
+      "task": "slugify-spaces",
+      "category": "字符串处理",
+      "passes": 2,
+      "attempts": 3,
+      "avg_rounds": 8.666666666666666,
+      "avg_tool_calls": 9.333333333333334,
+      "avg_tokens": 27120.333333333332,
+      "avg_duration_ms": 75692.33333333333,
+      "failures": {
+        "round_limit": 1
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "task": "display-name-null",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 9,
+      "tool_calls": 10,
+      "total_tokens": 25509,
+      "duration_ms": 37170,
+      "changed_files": [
+        "users.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-49-16-245Z_317fff0a",
+      "error": null
+    },
+    {
+      "task": "display-name-null",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 8,
+      "total_tokens": 18147,
+      "duration_ms": 31401,
+      "changed_files": [
+        "users.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-49-53-581Z_20531957",
+      "error": null
+    },
+    {
+      "task": "display-name-null",
+      "attempt": 3,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 11,
+      "total_tokens": 30216,
+      "duration_ms": 38463,
+      "changed_files": [
+        "users.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-50-25-142Z_97a73900",
+      "error": null
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 1,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 10,
+      "total_tokens": 31908,
+      "duration_ms": 44908,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-51-03-739Z_2d1d5bf1",
+      "error": null
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 22891,
+      "duration_ms": 33063,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-51-49-250Z_6406693f",
+      "error": null
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 3,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 10,
+      "total_tokens": 31582,
+      "duration_ms": 45256,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-52-22-476Z_d0f092d1",
+      "error": null
+    },
+    {
+      "task": "invoice-rounding",
+      "attempt": 1,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 13,
+      "total_tokens": 34477,
+      "duration_ms": 54874,
+      "changed_files": [
+        "money.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-53-07-882Z_4cf87dea",
+      "error": null
+    },
+    {
+      "task": "invoice-rounding",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 10,
+      "total_tokens": 21061,
+      "duration_ms": 45980,
+      "changed_files": [
+        "money.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-54-02-921Z_24d8fc05",
+      "error": null
+    },
+    {
+      "task": "invoice-rounding",
+      "attempt": 3,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 11,
+      "total_tokens": 24938,
+      "duration_ms": 42411,
+      "changed_files": [
+        "money.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-54-49-064Z_8edaa884",
+      "error": null
+    },
+    {
+      "task": "leaderboard-mutation",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 8,
+      "total_tokens": 18704,
+      "duration_ms": 30237,
+      "changed_files": [
+        "scores.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-55-31-637Z_e7e817a5",
+      "error": null
+    },
+    {
+      "task": "leaderboard-mutation",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 21415,
+      "duration_ms": 31496,
+      "changed_files": [
+        "scores.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-56-02-019Z_267d68b1",
+      "error": null
+    },
+    {
+      "task": "leaderboard-mutation",
+      "attempt": 3,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 21834,
+      "duration_ms": 27680,
+      "changed_files": [
+        "scores.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-56-33-684Z_c93dd463",
+      "error": null
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 21585,
+      "duration_ms": 38415,
+      "changed_files": [
+        "loader.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-57-01-519Z_2adb115a",
+      "error": null
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 2,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 11,
+      "total_tokens": 30516,
+      "duration_ms": 54215,
+      "changed_files": [
+        "loader.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-57-40-113Z_935a73ea",
+      "error": null
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 3,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 10,
+      "total_tokens": 28557,
+      "duration_ms": 40188,
+      "changed_files": [
+        "loader.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-58-34-493Z_2f00aa81",
+      "error": null
+    },
+    {
+      "task": "lru-cache",
+      "attempt": 1,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 10,
+      "total_tokens": 32196,
+      "duration_ms": 39445,
+      "changed_files": [
+        "lru.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-59-14-878Z_ad7bf807",
+      "error": null
+    },
+    {
+      "task": "lru-cache",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 7,
+      "total_tokens": 20972,
+      "duration_ms": 43057,
+      "changed_files": [
+        "lru.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T05-59-54-488Z_742d090a",
+      "error": null
+    },
+    {
+      "task": "lru-cache",
+      "attempt": 3,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 9,
+      "tool_calls": 9,
+      "total_tokens": 29413,
+      "duration_ms": 39797,
+      "changed_files": [
+        "lru.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-00-37-819Z_c01b0665",
+      "error": null
+    },
+    {
+      "task": "pagination-last-page",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 7,
+      "total_tokens": 17984,
+      "duration_ms": 31224,
+      "changed_files": [
+        "paginate.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-01-17-763Z_870c28fb",
+      "error": null
+    },
+    {
+      "task": "pagination-last-page",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 7,
+      "total_tokens": 17763,
+      "duration_ms": 26564,
+      "changed_files": [
+        "paginate.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-01-49-136Z_e9afbdbe",
+      "error": null
+    },
+    {
+      "task": "pagination-last-page",
+      "attempt": 3,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 20997,
+      "duration_ms": 35011,
+      "changed_files": [
+        "paginate.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-02-15-854Z_e1d79b33",
+      "error": null
+    },
+    {
+      "task": "retry-errors",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 7,
+      "total_tokens": 20065,
+      "duration_ms": 37307,
+      "changed_files": [
+        "retry.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-02-51-026Z_79af9628",
+      "error": null
+    },
+    {
+      "task": "retry-errors",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 7,
+      "tool_calls": 8,
+      "total_tokens": 21338,
+      "duration_ms": 44702,
+      "changed_files": [
+        "retry.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-03-28-495Z_d4f0a6dc",
+      "error": null
+    },
+    {
+      "task": "retry-errors",
+      "attempt": 3,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 10,
+      "total_tokens": 31993,
+      "duration_ms": 41320,
+      "changed_files": [
+        "retry.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-04-13-357Z_c0f1ea3d",
+      "error": null
+    },
+    {
+      "task": "settings-parsing",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 11,
+      "total_tokens": 31516,
+      "duration_ms": 42363,
+      "changed_files": [
+        "settings.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-04-54-825Z_797784e1",
+      "error": null
+    },
+    {
+      "task": "settings-parsing",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 10,
+      "total_tokens": 32093,
+      "duration_ms": 66093,
+      "changed_files": [
+        "settings.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-05-37-345Z_5c1546f7",
+      "error": null
+    },
+    {
+      "task": "settings-parsing",
+      "attempt": 3,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 9,
+      "total_tokens": 24742,
+      "duration_ms": 40111,
+      "changed_files": [
+        "settings.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-06-43-560Z_5d8a3c16",
+      "error": null
+    },
+    {
+      "task": "slugify-spaces",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 24373,
+      "duration_ms": 83571,
+      "changed_files": [
+        "slug.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-07-23-834Z_df3817ce",
+      "error": null
+    },
+    {
+      "task": "slugify-spaces",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 9,
+      "total_tokens": 25018,
+      "duration_ms": 83171,
+      "changed_files": [
+        "slug.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-08-47-559Z_cbbc39b5",
+      "error": null
+    },
+    {
+      "task": "slugify-spaces",
+      "attempt": 3,
+      "passed": false,
+      "status": "limit_reached",
+      "reason": "round_limit",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 10,
+      "tool_calls": 11,
+      "total_tokens": 31970,
+      "duration_ms": 60335,
+      "changed_files": [
+        "slug.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T06-10-10-879Z_6e3ed16a",
+      "error": null
+    }
+  ]
+}
