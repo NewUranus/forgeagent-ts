@@ -88,7 +88,7 @@ flowchart LR
 | 上下文工程：窗口、截断、摘要、仓库概览 | `src/context/`、`src/features.ts` |
 | MCP 客户端 / 服务端 | `src/mcp/` |
 | 回放、每轮日志、运行报告 | `src/replay.ts`、`src/model-log.ts`、`src/report.ts` |
-| RAG：BM25、RRF 混合检索、文档切分、检索评测、PDF 向量索引 | `src/rag/` |
+| RAG：BM25、RRF 混合检索、文档切分、检索评测、PDF 向量索引、VectorStore（内存 / Qdrant） | `src/rag/` |
 
 项目最初是 Python 原型，后移植为 TypeScript（Node.js 24+）。下文“代码对应”一节列出了两版文件的对应关系。
 
@@ -224,6 +224,7 @@ Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺�
 | `--project-notes on\|off` | `on` | 固定上下文中加入根目录的 `AGENTS.md` / `CLAUDE.md`（作为数据） |
 | `--loop-guard on\|off` | `on` | 重复检测（见“模型调用与重复检测”） |
 | `--docs on\|off` | `on` | 有文档（或 `--docs-index`）时向模型提供 `search_docs`（见“RAG”） |
+| `--vector-store memory\|qdrant` | `memory` | `--docs-index` 的向量放在哪里检索：内存精确扫描，或本地 Qdrant（见“向量数据库：Qdrant”） |
 
 ```bash
 npm run agent -- --summary llm --task "..."
@@ -305,7 +306,7 @@ PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本�
 
 若希望运行时完全不依赖 Python，设置 `EMBEDDING_BASE_URL` 为提供同一模型的兼容 embedding 服务，例如本地服务 `http://127.0.0.1:8080/v1`，并配置 `EMBEDDING_MODEL`、可选 `EMBEDDING_API_KEY`。本项目不负责部署模型服务，也不会自动下载新格式权重。
 
-向量检索仍是 JSON 索引 + 对全部向量做点积（加载时归一化一次，Top-K 用小顶堆），没有向量数据库或重排器。
+`rag -- search` 仍是 JSON 索引 + 对全部向量做点积（加载时归一化一次，Top-K 用小顶堆）。`search_docs` 的向量检索走 `VectorStore` 接口，可以换成 Qdrant（见下文）。没有重排器。
 
 ### 接入 Agent：search_docs
 
@@ -326,6 +327,42 @@ npm run agent -- --docs-index .rag_cache/thinkpython2.index.json --task "..."
 在本 README 上的实测结果（只用 BM25，未配置 embedding）：**recall@5 = 0.917，MRR = 0.917**（12 个问题；2026-10-25 README 新增“评测”一节后重测，之前 MRR 为 0.875，变化来自语料本身改变）。唯一未命中的问题关于离线回放：排第一的是开头的快速体验一节，内容同样相关，但标注只指向回放一节；标注保持原样，不在看到结果后修改。评测问题不要原样出现在被检索的文档里，否则会泄漏。样本很小，只能说明检索链路可用。
 
 
+### 向量数据库：Qdrant
+
+`search_docs` 的向量检索走 `VectorStore` 接口（`src/rag/vector-store.ts`）：默认 `ExactStore` 在内存里精确扫描，零依赖；`--vector-store qdrant` 改用本地 Qdrant（`src/rag/qdrant-store.ts`）。Qdrant 用官方 macOS/Linux 原生二进制，不需要 Docker。
+
+```bash
+npm run qdrant:install   # 下载 v1.20.0 并校验 SHA-256，放到 .qdrant/bin（约 27 MB 压缩包）
+npm run qdrant           # 前台运行，REST 端口 6333，数据在 .qdrant/storage；QDRANT_URL 可改地址
+
+npm run rag -- search-docs "What is infinite recursion?" --docs-index .rag_cache/thinkpython2.index.json --vector-store qdrant
+npm run agent -- --docs-index .rag_cache/thinkpython2.index.json --vector-store qdrant --task "..."
+npm run rag -- eval-matrix --qdrant                              # 对照矩阵加上 Qdrant 精确 / HNSW 两种后端
+npm run rag -- scale --sizes 10000,100000,300000 --quantization  # 规模实验
+```
+
+- **约定**：向量由调用方归一化，存储层不再归一化，余弦就是点积；`ExactStore` 用 Float64Array，排序与原来的内联点积逐位一致。
+- **ID**：Qdrant 的点 ID 只能是整数或 UUID，字符串 ID 经 SHA-256 映射为 UUID，原 ID 放在 payload 里，upsert 幂等。
+- **集合复用**：`search_docs` 的集合名带索引文件的哈希，索引不变就不重复上传，变了自动重建。
+- **小集合不建 HNSW**：Qdrant 默认在约 20 MB 以下只做全量扫描。`search_docs` 保留这个默认值（624 条 × 1024 维约 2.5 MB，全量扫描更快）；矩阵和规模实验用 `forceIndex` 强制建图，等 `indexed_vectors_count` 追上点数才开始计时。
+- **降级**：Qdrant 查询出错和 embedding 出错一样，退回 BM25 并在结果里说明。
+
+**对照矩阵**（Think Python 624 条、README 25 条）：Qdrant 精确和 HNSW 的前 40 个结果与内存精确检索完全一致，recall@5 / MRR 不变。规模这么小，HNSW 的近似误差体现不出来，所以另做了规模实验。
+
+**规模实验**（2026-10-25，Apple Silicon、16 GB 内存，1024 维，68 个真实评测问题，top-10，HNSW `m=16`、`ef_construct=100`）。语料是合成的：两条真实片段向量按 0.5–1 的权重混合，加噪声后归一化。数字只说明趋势，不代表真实语料上的召回。
+
+| N | 内存精确 p50 | Qdrant 精确 p50 | HNSW ef=64 | HNSW ef=256 | int8 + ef=256 |
+|---|---|---|---|---|---|
+| 1 万 | 21 ms | 2.3 ms | 99.0%，1.8 ms | 100%，3.1 ms | 100%，1.6 ms |
+| 10 万 | 224 ms | 7.5 ms | 90.4%，1.7 ms | 99.1%，3.0 ms | 98.8%，2.1 ms |
+| 30 万 | 789 ms | 22 ms | 79.8%，13.8 ms | 92.9%，11.8 ms | 92.9%，2.2 ms |
+
+- 内存精确扫描（JS）随 N 线性变慢，10 万条已经超过 200 ms；Qdrant 的精确扫描（Rust SIMD、float32）在同样规模下快约 30 倍。
+- HNSW 的延迟基本不随 N 增长，但 `ef` 固定时召回随 N 下降：要保持召回，`ef`（或 `m`、`ef_construct`）要随规模调大。
+- int8 量化（查询时用原始向量重排）召回和 float32 基本相同。30 万条时，不量化的 HNSW 延迟不随 ef 单调变化，p95 波动大，可能是本机内存紧张（同时还开着约 3.6 GB 的内存精确基线）；量化后的结果稳定在约 2 ms。
+- 上传走 REST + JSON，30 万条要 150–170 秒，是目前最慢的一环；HNSW 图在上传过程中同步构建，上传完只需再等几秒。
+- 结果写入 `eval/results/vector-scale-<日期>.json`，其中 Qdrant 进程内存增量只是粗略值（删除集合后内存不一定还给系统）。
+
 ## 手写 MCP
 
 `--mcp` 会启动独立 stdio 子进程，通过 `tools/list` 动态发现工具并映射为模型的 function schema；工具调用通过 `tools/call` 执行。没有引入 MCP SDK。
@@ -336,7 +373,7 @@ npm run agent -- --docs-index .rag_cache/thinkpython2.index.json --task "..."
 
 ## 验证范围
 
-自动化测试覆盖工作副本、路径限制、禁止修改测试、超时、真实 stdio MCP、模拟模型工具循环、最后写入使验证失效、修复重试、分片重叠、旧索引兼容、向量排序及本地 HTTP embedding/chat 接口。
+自动化测试覆盖工作副本、路径限制、禁止修改测试、超时、真实 stdio MCP、模拟模型工具循环、最后写入使验证失效、修复重试、分片重叠、旧索引兼容、向量排序、VectorStore（内存 / Qdrant，Qdrant 用例在本机 Qdrant 未运行时跳过）及本地 HTTP embedding/chat 接口。
 
 真实付费聊天模型调用不在默认测试中。依赖锁定在 package-lock.json；TypeScript 5.9 保留 runner 所用的编译器语法诊断 API。
 

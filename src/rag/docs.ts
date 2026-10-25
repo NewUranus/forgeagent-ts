@@ -1,14 +1,17 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { listFiles } from "../workspace.js";
 import type { VectorIndex } from "../types.js";
-import { Bm25Index, reciprocalRankFusion, topK } from "./lexical.js";
+import { Bm25Index, reciprocalRankFusion } from "./lexical.js";
 import { loadIndex } from "./retriever.js";
 import { embed, normalize } from "./embedding.js";
+import { ExactStore, type VectorStore } from "./vector-store.js";
 
 // search_docs: hybrid retrieval over the project's own documentation plus an optional prebuilt
 // vector index (e.g. a PDF manual). BM25 always works offline; vectors join only when the index has
 // embeddings and an embedding model answers. Rankings are fused by rank, not by raw score.
+// Vectors live behind VectorStore: in memory by default, or in a local Qdrant collection.
 
 export const DOC_FILE = /\.(md|mdx|markdown|txt|rst|adoc)$/i;
 const MAX_CHUNK_CHARS = 1200;
@@ -95,6 +98,8 @@ export interface DocsConfig {
   indexPath?: string;
   /** Injected for tests; defaults to the configured embedding service or local model. */
   embedder?: Embedder;
+  /** Where the index vectors are searched: "memory" (exact scan, default) or "qdrant" (HNSW, `npm run qdrant`). */
+  vectorStore?: "memory" | "qdrant";
 }
 
 export const docsQueryPrompt = (question: string) =>
@@ -102,8 +107,12 @@ export const docsQueryPrompt = (question: string) =>
 
 export class DocSearch {
   private bm25: Bm25Index;
-  constructor(readonly chunks: DocChunk[], private index: VectorIndex | null, private embedder: Embedder) {
+  private store: VectorStore | null;
+  /** Without a store, the chunks' own embeddings are searched exactly in memory. */
+  constructor(readonly chunks: DocChunk[], private index: VectorIndex | null, private embedder: Embedder, store?: VectorStore) {
     this.bm25 = new Bm25Index(chunks.map((chunk) => `${chunk.title}\n${chunk.text}`));
+    const points = chunks.filter((chunk) => chunk.embedding).map((chunk) => ({ id: chunk.id, vector: chunk.embedding! }));
+    this.store = store ?? (index && points.length ? new ExactStore(index.dimension, points) : null);
   }
 
   static async build(root: string, config: DocsConfig = {}) {
@@ -114,14 +123,22 @@ export class DocSearch {
       if (buffer.length > MAX_DOC_BYTES || buffer.includes(0)) continue;
       chunks.push(...chunkDocument(file, buffer.toString("utf8")));
     }
-    let index: VectorIndex | null = null;
+    let index: VectorIndex | null = null, store: VectorStore | undefined;
     if (config.indexPath) {
       index = await loadIndex(config.indexPath);
       const name = path.basename(config.indexPath);
       for (const chunk of index.chunks)
         chunks.push({ id: `${name}#${chunk.chunk_id}`, source: chunk.source, location: `${chunk.source} 第 ${chunk.page} 页`, title: "", text: chunk.content, embedding: chunk.embedding });
+      if (config.vectorStore === "qdrant") {
+        // The collection name carries a hash of the index file, so an unchanged index is uploaded once.
+        const { QdrantStore } = await import("./qdrant-store.js");
+        const hash = createHash("sha256").update(await fs.readFile(config.indexPath)).digest("hex").slice(0, 12);
+        const collection = `docs_${name.replace(/[^A-Za-z0-9_-]/g, "_")}_${hash}`;
+        const points = chunks.filter((chunk) => chunk.embedding).map((chunk) => ({ id: chunk.id, vector: chunk.embedding! }));
+        ({ store } = await QdrantStore.sync({ collection, dimension: index.dimension }, points));
+      }
     }
-    return new DocSearch(chunks, index, config.embedder ?? embed);
+    return new DocSearch(chunks, index, config.embedder ?? embed, store);
   }
 
   /**
@@ -135,14 +152,11 @@ export class DocSearch {
     const lexical = this.bm25.search(query, depth).map(({ doc }) => this.chunks[doc].id);
     let mode: "bm25" | "hybrid" = "bm25", note: string | null = null;
     const rankings = [lexical];
-    const withVectors = this.chunks.filter((chunk) => chunk.embedding);
-    if (this.index && withVectors.length) {
+    if (this.index && this.store) {
       try {
         const [vector] = await this.embedder([docsQueryPrompt(query)], this.index.model);
         if (vector.length !== this.index.dimension) throw new Error("问题向量与索引维度不一致");
-        const q = normalize(vector);
-        const dot = (e: number[]) => e.reduce((sum, value, i) => sum + value * q[i], 0);
-        rankings.push(topK(withVectors, depth, (chunk) => dot(chunk.embedding!)).map(({ item }) => item.id));
+        rankings.push((await this.store.search(normalize(vector), depth)).map((hit) => hit.id));
         mode = "hybrid";
       } catch (error) {
         note = `向量检索不可用，只用了 BM25：${String(error).slice(0, 200)}`;
@@ -154,7 +168,7 @@ export class DocSearch {
       return { id, location: chunk.location, title: chunk.title, score: Number(score.toFixed(4)),
         text: chunk.text.length > RESULT_CHARS ? `${chunk.text.slice(0, RESULT_CHARS)}……` : chunk.text };
     });
-    return { query, mode, total_chunks: this.chunks.length, results, ...(note ? { note } : {}) };
+    return { query, mode, ...(mode === "hybrid" ? { vector_store: this.store!.name } : {}), total_chunks: this.chunks.length, results, ...(note ? { note } : {}) };
   }
 }
 
@@ -162,7 +176,7 @@ export class DocSearch {
 const cache = new Map<string, { signature: string; search: Promise<DocSearch> }>();
 
 async function signature(root: string, config: DocsConfig) {
-  const parts: string[] = [config.indexPath ?? ""];
+  const parts: string[] = [config.indexPath ?? "", config.vectorStore ?? "memory"];
   for (const file of await listFiles(root)) {
     if (!DOC_FILE.test(file)) continue;
     const stat = await fs.stat(path.join(root, file));
@@ -172,7 +186,7 @@ async function signature(root: string, config: DocsConfig) {
 }
 
 export async function docSearchFor(root: string, config: DocsConfig = {}) {
-  const key = `${root}\0${config.indexPath ?? ""}`;
+  const key = `${root}\0${config.indexPath ?? ""}\0${config.vectorStore ?? "memory"}`;
   const current = await signature(root, config);
   const cached = cache.get(key);
   if (cached && cached.signature === current && !config.embedder) return cached.search;

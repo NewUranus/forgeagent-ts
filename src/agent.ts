@@ -429,7 +429,7 @@ export async function runAgent(options: AgentOptions = {}) {
         new URL(`./mcp/server.${extension}`, import.meta.url),
         workspace.projectDir,
         undefined,
-        { testConfig, docs: { indexPath: options.docs?.indexPath } },
+        { testConfig, docs: { indexPath: options.docs?.indexPath, vectorStore: options.docs?.vectorStore } },
       );
       modelTools = await mcp.listTools();
     }
@@ -596,7 +596,7 @@ export async function runAgent(options: AgentOptions = {}) {
       context: { ...contextStats, llm_summary_calls: llmSummary.calls, llm_summary_errors: llmSummary.errors },
       model_requests: { retries: modelCalls.retries, context_overflow_retries: modelCalls.overflowRetries, retry_errors: modelCalls.errors.slice(-5) },
       loop: { guard: features.loopGuard, warnings: loopStats.warnings, detections: loopStats.detections },
-      docs: { offered: docsOffered, index: options.docs?.indexPath ?? null },
+      docs: { offered: docsOffered, index: options.docs?.indexPath ?? null, vector_store: options.docs?.vectorStore ?? "memory" },
       plan_execute: planStats,
     },
     tests: testHistory.summary(),

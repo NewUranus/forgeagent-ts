@@ -7,6 +7,7 @@ import { chunkDocument, DocSearch, docsQueryPrompt, isRelevant, type DocChunk, t
 import { embed, normalize, queryPrompt } from "./embedding.js";
 import { Bm25Index, reciprocalRankFusion, tokenize, topK } from "./lexical.js";
 import { loadIndex } from "./retriever.js";
+import { ExactStore, type VectorHit } from "./vector-store.js";
 
 // Retrieval ablation matrix: each variant changes one setting of the production configuration
 // (1200-char chunks, heading path in the text, bigram Chinese tokens, docs query prompt, RRF k = 60)
@@ -18,6 +19,10 @@ import { loadIndex } from "./retriever.js";
 //   the top of the README count only where a case names their lines explicitly.
 // - Think Python: the body pages of the section that answers the question, from the section's
 //   first page to the next section's first page. Table of contents and glossary pages do not count.
+//
+// With --qdrant the two baselines also run their vector list through a local Qdrant collection,
+// once as an exact scan and once through HNSW, and the report compares the backends: overlap with
+// the in-memory top 10 (the ANN recall) and per-query latency.
 
 const K = 10;
 const DEPTH = Math.max(20, K * 4);
@@ -44,6 +49,8 @@ interface Variant {
   queryVectors: Map<string, number[]>;
   tokenizer: Tokenizer;
   rrfK: number;
+  /** Vector lists from another backend (Qdrant), by query; without it vectors are ranked in memory. */
+  vectorRankings?: Map<string, string[]>;
 }
 
 /** Also index each character of multi-character Chinese runs, next to the bigrams. */
@@ -55,7 +62,7 @@ const CACHE = path.join(ROOT, ".rag_cache", "matrix-embeddings.json");
 const MODEL = "Qwen3-Embedding-0.6B";
 const key = (text: string) => createHash("sha256").update(`${MODEL}\0${text}`).digest("hex");
 
-async function embedCached(texts: string[]) {
+export async function embedCached(texts: string[]) {
   const cache: Record<string, number[]> = JSON.parse(await fs.readFile(CACHE, "utf8").catch(() => "{}"));
   const missing = [...new Set(texts.filter((text) => !cache[key(text)]))];
   if (missing.length) {
@@ -74,7 +81,9 @@ export function rank(variant: Variant, query: string, method: Method): DocChunk[
     const bm25 = new Bm25Index(corpus.texts, undefined, undefined, variant.tokenizer);
     lists.push(bm25.search(query, DEPTH).map(({ doc }) => corpus.chunks[doc].id));
   }
-  if (method !== "bm25") {
+  if (method !== "bm25" && variant.vectorRankings) {
+    lists.push(variant.vectorRankings.get(query)!);
+  } else if (method !== "bm25") {
     const q = variant.queryVectors.get(query)!;
     const dot = (i: number) => corpus.vectors[i].reduce((sum, value, j) => sum + value * q[j], 0);
     lists.push(topK(corpus.chunks.keys(), DEPTH, dot).map(({ item }) => corpus.chunks[item].id));
@@ -152,7 +161,64 @@ async function checkParity(variant: Variant, method: Method, index: VectorIndex 
   }
 }
 
-export async function runMatrix(options: { readmeCases: string; pdfCases: string; pdfIndex: string; out: string }) {
+const percentile = (values: number[], p: number) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+};
+
+/**
+ * Rank every case's query vector through three backends over the same points: ExactStore (what
+ * search_docs uses by default), Qdrant with exact: true, and Qdrant through its HNSW graph.
+ * The collection is named by a hash of the corpus, so reruns reuse it instead of re-uploading.
+ */
+async function backendRankings(variant: Variant) {
+  const { QdrantStore } = await import("./qdrant-store.js");
+  const { corpus } = variant;
+  const dimension = corpus.vectors[0].length;
+  const points = corpus.chunks.map((chunk, i) => ({ id: chunk.id, vector: corpus.vectors[i] }));
+  const hash = createHash("sha256").update(JSON.stringify(points)).digest("hex").slice(0, 12);
+  const hnsw = { m: 16, ef_construct: 100 };
+  const { store } = await QdrantStore.sync({ collection: `matrix_${hash}`, dimension, hnsw, forceIndex: true }, points);
+  const memory = new ExactStore(dimension, points);
+  const backends: [string, (vector: number[]) => Promise<VectorHit[]>][] = [
+    ["memory", (vector) => memory.search(vector, DEPTH)],
+    ["qdrant_exact", (vector) => store.search(vector, DEPTH, { exact: true })],
+    ["qdrant_hnsw", (vector) => store.search(vector, DEPTH)],
+  ];
+  const queries = variant.cases.map((item) => item.query);
+  const rankings: Record<string, Map<string, string[]>> = {};
+  const latency: Record<string, { p50_ms: number; p95_ms: number }> = {};
+  for (const [name, search] of backends) {
+    await search(variant.queryVectors.get(queries[0])!); // warm up connections and caches
+    const lists = new Map<string, string[]>(), times: number[] = [];
+    for (const query of queries) {
+      const start = performance.now();
+      const hits = await search(variant.queryVectors.get(query)!);
+      times.push(performance.now() - start);
+      lists.set(query, hits.map((hit) => hit.id));
+    }
+    rankings[name] = lists;
+    latency[name] = { p50_ms: Number(percentile(times, 0.5).toFixed(3)), p95_ms: Number(percentile(times, 0.95).toFixed(3)) };
+  }
+  // ANN recall: share of the exact top 10 that a backend also returns in its top 10.
+  const overlap = (name: string) => queries.reduce((sum, query) => {
+    const truth = new Set(rankings.memory.get(query)!.slice(0, K));
+    return sum + rankings[name].get(query)!.slice(0, K).filter((id) => truth.has(id)).length / truth.size;
+  }, 0) / queries.length;
+  const identical = (name: string) => queries.filter((query) => rankings[name].get(query)!.join() === rankings.memory.get(query)!.join()).length;
+  const info = await store.info();
+  return {
+    rankings,
+    summary: {
+      corpus: variant.name, points: points.length, dimension, collection: store.collection, hnsw, indexed_vectors: info.indexed,
+      backends: Object.fromEntries(backends.map(([name]) => [name, {
+        ...latency[name], recall_at_10_vs_exact: Number(overlap(name).toFixed(4)), identical_depth_lists: `${identical(name)}/${queries.length}`,
+      }])),
+    },
+  };
+}
+
+export async function runMatrix(options: { readmeCases: string; pdfCases: string; pdfIndex: string; out: string; qdrant?: boolean }) {
   const readme = await fs.readFile(path.join(ROOT, "README.md"), "utf8");
   const readmeCases: Case[] = JSON.parse(await fs.readFile(options.readmeCases, "utf8"));
   const pdfCases: Case[] = JSON.parse(await fs.readFile(options.pdfCases, "utf8"));
@@ -180,6 +246,17 @@ export async function runMatrix(options: { readmeCases: string; pdfCases: string
     { variant: { ...pdfBase, name: "Think Python 教材提示词", change: "查询提示词：通用文档 → Python 教材", queryVectors: vectorsFor(pdfCases, bookQueries) }, methods: ["vector", "hybrid"] },
     { variant: { ...pdfBase, name: "Think Python RRF k=10", change: "RRF k 60 → 10", rrfK: 10 }, methods: ["hybrid"] },
   ];
+  const backends = [];
+  if (options.qdrant) {
+    for (const baseline of [readmeBase, pdfBase]) {
+      const { rankings, summary } = await backendRankings(baseline);
+      backends.push(summary);
+      const at = variants.findIndex(({ variant }) => variant === baseline) + 1;
+      variants.splice(at, 0,
+        { variant: { ...baseline, name: `${baseline.name} · Qdrant 精确`, change: "向量后端：内存 → Qdrant exact", vectorRankings: rankings.qdrant_exact }, methods: ["vector", "hybrid"] },
+        { variant: { ...baseline, name: `${baseline.name} · Qdrant HNSW`, change: "向量后端：内存 → Qdrant HNSW（m=16）", vectorRankings: rankings.qdrant_hnsw }, methods: ["vector", "hybrid"] });
+    }
+  }
 
   // README chunks carry no vectors in search_docs today, so its parity check covers BM25 only.
   await checkParity(readmeBase, "bm25", null);
@@ -203,7 +280,7 @@ export async function runMatrix(options: { readmeCases: string; pdfCases: string
   );
 
   const frozen = JSON.parse(await fs.readFile(path.join(path.dirname(options.readmeCases), "frozen.json"), "utf8").catch(() => "null"));
-  const report = { generated_at: new Date().toISOString(), model: MODEL, k: K, depth: DEPTH, frozen, leaked_queries: leaked, rows, comparisons };
+  const report = { generated_at: new Date().toISOString(), model: MODEL, k: K, depth: DEPTH, frozen, leaked_queries: leaked, rows, comparisons, backends };
   await fs.mkdir(path.dirname(options.out), { recursive: true });
   await fs.writeFile(options.out, JSON.stringify(report, null, 2) + "\n");
   return report;
@@ -222,6 +299,15 @@ export function renderMatrix(report: Awaited<ReturnType<typeof runMatrix>>) {
     "配对比较（recall@5，基线为同一语料上的 bm25）：",
     ...Object.entries(report.comparisons).map(([name, c]) =>
       `- ${name}：${c.delta_recall_at_5 >= 0 ? "+" : ""}${pct(c.delta_recall_at_5)}，95% 区间 [${pct(c.ci95[0])}, ${pct(c.ci95[1])}]，新增命中 ${c.gained.length}，丢失 ${c.lost.length}`),
+    ...(report.backends.length ? [
+      "",
+      `向量后端对比（每个查询取前 ${report.depth}；召回 = 与内存精确检索前 ${report.k} 的重合率；延迟含 HTTP 往返）：`,
+      "",
+      "| 语料 | 向量数 | 后端 | recall@10 vs 精确 | 前 40 完全一致 | p50 ms | p95 ms |",
+      "|---|---|---|---|---|---|---|",
+      ...report.backends.flatMap((b) => Object.entries(b.backends).map(([name, s]) =>
+        `| ${b.corpus} | ${b.points} | ${name} | ${pct(s.recall_at_10_vs_exact)} | ${s.identical_depth_lists} | ${s.p50_ms} | ${s.p95_ms} |`)),
+    ] : []),
     "",
     report.leaked_queries.length ? `警告：${report.leaked_queries.length} 个问题原样出现在 README 中：${report.leaked_queries.join("；")}` : "泄漏检查：没有问题原样出现在 README 中。",
   ];
