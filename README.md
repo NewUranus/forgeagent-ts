@@ -221,6 +221,24 @@ npm run agent -- --context none --truncate off --repo-map off   # 关闭全部�
 
 终端显示每轮估算 token、输入预算、省略组数和是否插入摘要；`model/round-*/request.json` 保存真正发送的窗口；报告的 `statistics.context` 汇总单轮最大估算、裁剪轮数和摘要情况。估算使用 UTF-8 字节数启发式，不能保证符合服务端精确 token 限制；目前没有服务端超限后的自动重试。Mock、自定义回复和离线回放不使用 API 请求窗口，但固定前缀（项目约定、仓库概览）在所有模式中都会加入。
 
+## 评测
+
+`npm run eval` 把 `eval/tasks/` 下的每个任务各跑 N 次（默认 3），汇总通过率和成本。上面的功能开关和 `--strategy` 都可以传给它，所以只改一个开关重跑一遍就是一组消融对比：
+
+```bash
+npm run eval                                               # 全部任务 × 3 次，使用 .env 中的模型
+npm run eval -- --repeat 5 --tasks lru-cache,retry-errors  # 只跑部分任务
+npm run eval -- --summary none --label summary-off         # 消融：关掉摘要，结果文件带标签
+npm run eval -- --strategy plan-execute --label plan
+npm run eval -- --mock --repeat 1                          # 不调用 API，只检查评测流程
+```
+
+每个任务是一个目录：`instruction.md`（给 Agent 的任务，写法类似 issue）、`project/`（注入了 bug 的小项目和测试）、`task.json`（bug 类型，可选 `test_command`）、`solution/`（参考修复，只用于测试检查任务本身，不会复制给 Agent）。现有 10 个 TypeScript 任务，覆盖 off-by-one、边界条件、空值、异步、跨文件调用、类型转换、副作用、字符串处理、数据结构和错误处理；`test/eval.test.ts` 保证每个任务修复前测试失败、套用参考修复后通过。
+
+**通过判定**比 Agent 的自我报告更严格：Agent 以 `passed` 结束、评测脚本在最终工作副本上**独立重跑**全量测试通过，且没有修改测试文件，三者同时满足才算通过。单次运行出错（模型故障、准备命令失败等）只记为未通过，不会中断评测。
+
+结果写到 `eval/results/eval-<时间戳>[-标签].md` 和 `.json`：每个任务的通过次数、平均轮数、工具调用数、token（含模型摘要调用）、耗时和未通过原因，以及 pass@1 和 pass@N（无偏估计）。JSON 里的 `task_dir` 指向每次运行的完整记录。任务按顺序执行，目前不支持并发。
+
 ## 代码对应
 
 | Python | TypeScript |
@@ -282,7 +300,7 @@ npm run rag -- eval-docs eval/docs-cases.json --top-k 5
 npm run agent -- --docs-index .rag_cache/thinkpython2.index.json --task "..."
 ```
 
-在本 README 上的实测结果（只用 BM25，未配置 embedding）：**recall@5 = 0.917，MRR = 0.875**（12 个问题）。唯一未命中的问题关于离线回放：排第一的是开头的快速体验一节，内容同样相关，但标注只指向回放一节；标注保持原样，不在看到结果后修改。评测问题不要原样出现在被检索的文档里，否则会泄漏。样本很小，只能说明检索链路可用。
+在本 README 上的实测结果（只用 BM25，未配置 embedding）：**recall@5 = 0.917，MRR = 0.917**（12 个问题；2026-10-25 README 新增“评测”一节后重测，之前 MRR 为 0.875，变化来自语料本身改变）。唯一未命中的问题关于离线回放：排第一的是开头的快速体验一节，内容同样相关，但标注只指向回放一节；标注保持原样，不在看到结果后修改。评测问题不要原样出现在被检索的文档里，否则会泄漏。样本很小，只能说明检索链路可用。
 
 
 ## 手写 MCP

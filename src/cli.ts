@@ -46,7 +46,7 @@ function parseTestConfig(values: { "test-command"?: string; "test-timeout"?: str
   return config;
 }
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "docs-index": { type: "string" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "docs-index": { type: "string" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, verbose: { type: "boolean" } } });
   const [command, action, argument] = positionals;
   if (command === "agent") {
     const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values),
@@ -59,6 +59,19 @@ async function main() {
     const result = await runSweTask(values["pro-dir"] ?? path.join(ROOT, "..", "SWE-bench_Pro-os"), action, {
       mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values), stream: values.stream });
     if (!result.resolved) process.exitCode = 1;
+  } else if (command === "eval") {
+    if (values.apply || values.replay || values.task || values.source || values.workspace)
+      throw new Error("eval 的任务、源项目和测试命令来自 eval/tasks；不支持 --apply/--replay/--task/--source/--workspace");
+    const { runEval } = await import("./eval/run.js");
+    const { result, files } = await runEval({
+      tasksDir: path.resolve(values["tasks-dir"] ?? path.join(ROOT, "eval", "tasks")),
+      only: values.tasks?.split(",").map(name => name.trim()).filter(Boolean),
+      repeat: values.repeat ? Number(values.repeat) : undefined,
+      outDir: path.join(ROOT, "eval", "results"), label: values.label, quiet: !values.verbose,
+      agent: { mock: values.mock, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values),
+        testConfig: parseTestConfig(values), docs: { indexPath: values["docs-index"] }, strategy: parseStrategy(values.strategy), planLimits: parsePlanLimits(values) },
+    });
+    console.log(`\n通过 ${result.totals.passes}/${result.totals.attempts}，pass@1 = ${(result.totals.pass_at_1 * 100).toFixed(1)}%\n汇总：${files.markdown}\n明细：${files.json}`);
   } else if (command === "runner") {
     if ((await runRepairDemo()).final_status !== "passed") process.exitCode = 1;
   } else if (command === "rag") {
@@ -108,6 +121,6 @@ async function main() {
       const output = path.join(cache, path.basename(argument));
       await fs.writeFile(output, JSON.stringify(index)); console.log(`已导入 ${index.chunks.length} 个向量：${output}`);
     } else throw new Error("rag 子命令：chunk / embed / search / search-docs / eval-docs / eval-matrix / import");
-  } else throw new Error("命令：agent / runner / rag / swe");
+  } else throw new Error("命令：agent / eval / runner / rag / swe");
 }
 main().catch(e => { console.error(String(e)); process.exitCode = 1; });
