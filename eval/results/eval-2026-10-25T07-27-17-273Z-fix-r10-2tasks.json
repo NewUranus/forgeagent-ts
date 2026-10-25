@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "label": "fix-r10-2tasks",
+  "started_at": "2026-10-25T07:27:17.273Z",
+  "ended_at": "2026-10-25T07:27:20.989Z",
+  "repeat": 3,
+  "config": {
+    "mode": "api",
+    "models": [
+      "qwen3.7-plus"
+    ],
+    "strategy": "react",
+    "max_rounds": 10,
+    "mcp": false,
+    "features": {
+      "context": "window",
+      "truncate": true,
+      "summary": "rule",
+      "repoMap": true,
+      "projectNotes": true,
+      "loopGuard": true,
+      "docs": true
+    }
+  },
+  "totals": {
+    "tasks": 2,
+    "attempts": 6,
+    "passes": 0,
+    "pass_at_1": 0,
+    "pass_at_k": {
+      "k": 3,
+      "value": 0
+    },
+    "tasks_solved_once": 0,
+    "avg_tokens": null
+  },
+  "tasks": [
+    {
+      "task": "grade-boundaries",
+      "category": "边界条件",
+      "passes": 0,
+      "attempts": 3,
+      "avg_rounds": 1,
+      "avg_tool_calls": 0,
+      "avg_tokens": null,
+      "avg_duration_ms": 516,
+      "failures": {
+        "model_error": 3
+      }
+    },
+    {
+      "task": "load-all-async",
+      "category": "异步",
+      "passes": 0,
+      "attempts": 3,
+      "avg_rounds": 1,
+      "avg_tool_calls": 0,
+      "avg_tokens": null,
+      "avg_duration_ms": 327.6666666666667,
+      "failures": {
+        "model_error": 3
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "task": "grade-boundaries",
+      "attempt": 1,
+      "passed": false,
+      "status": "error",
+      "reason": "model_error",
+      "final_tests_passed": false,
+      "tests_modified": false,
+      "rounds": 1,
+      "tool_calls": 0,
+      "total_tokens": null,
+      "duration_ms": 635,
+      "changed_files": [],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-27-17-275Z_cfcc1735",
+      "error": "ApiError: API 请求失败：HTTP 403：{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"18e6802f-3b4f-91bf-a421-cd5fb5c1d430\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 2,
+      "passed": false,
+      "status": "error",
+      "reason": "model_error",
+      "final_tests_passed": false,
+      "tests_modified": false,
+      "rounds": 1,
+      "tool_calls": 0,
+      "total_tokens": null,
+      "duration_ms": 521,
+      "changed_files": [],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-27-18-138Z_588d1895",
+      "error": "ApiError: API 请求失败：HTTP 403：{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"1a48097e-9668-9aee-bfc1-10b78d0a316f\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 3,
+      "passed": false,
+      "status": "error",
+      "reason": "model_error",
+      "final_tests_passed": false,
+      "tests_modified": false,
+      "rounds": 1,
+      "tool_calls": 0,
+      "total_tokens": null,
+      "duration_ms": 392,
+      "changed_files": [],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-27-18-850Z_54a0e16a",
+      "error": "ApiError: API 请求失败：HTTP 403：{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"34f34b1c-c89b-9ab6-a528-58aae0961378\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 1,
+      "passed": false,
+      "status": "error",
+      "reason": "model_error",
+      "final_tests_passed": false,
+      "tests_modified": false,
+      "rounds": 1,
+      "tool_calls": 0,
+      "total_tokens": null,
+      "duration_ms": 310,
+      "changed_files": [],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-27-19-411Z_356a6776",
+      "error": "ApiError: API 请求失败：HTTP 403：{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"cba1a6de-d920-97eb-a2d9-ade1da496cee\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 2,
+      "passed": false,
+      "status": "error",
+      "reason": "model_error",
+      "final_tests_passed": false,
+      "tests_modified": false,
+      "rounds": 1,
+      "tool_calls": 0,
+      "total_tokens": null,
+      "duration_ms": 319,
+      "changed_files": [],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-27-19-922Z_961c2670",
+      "error": "ApiError: API 请求失败：HTTP 403：{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"82213053-1bd4-9f19-a2fa-62520b840ffa\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 3,
+      "passed": false,
+      "status": "error",
+      "reason": "model_error",
+      "final_tests_passed": false,
+      "tests_modified": false,
+      "rounds": 1,
+      "tool_calls": 0,
+      "total_tokens": null,
+      "duration_ms": 354,
+      "changed_files": [],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-27-20-447Z_307ee979",
+      "error": "ApiError: API 请求失败：HTTP 403：{\"error\":{\"message\":\"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\\"use free tier only\\\" mode in the management console.\",\"id\":\"949bd273-a5bb-91d9-ab74-c05fc4cfa85e\",\"type\":\"insufficient_quota\",\"code\":\"insufficient_quota\"}}"
+    }
+  ]
+}
