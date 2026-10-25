@@ -87,6 +87,13 @@ test("run_tests can target one file or name, marked partial, and rejects non-tes
   await assert.rejects(runTests(root, undefined, { target: "a.test.js::x" }), /name_pattern/);
 });
 
+test("a target that is the project's only test file counts as a full run", async t => {
+  const { root } = await project(t, { "package.json": '{"type":"module"}', "a.test.js": 'import { test } from "node:test"; test("pass one", () => {});' });
+  assert.equal((await runTests(root, undefined, { target: "a.test.js" })).scope, "full");
+  assert.equal((await runTests(root, undefined, { target: "./a.test.js" })).scope, "full");
+  assert.equal((await runTests(root, undefined, { target: "a.test.js", namePattern: "pass" })).scope, "partial");
+});
+
 test("a passing partial run never verifies, and edit_file invalidates earlier verification", async t => {
   const base = await fs.mkdtemp(path.join(os.tmpdir(), "forge-partial-"));
   t.after(() => fs.rm(base, { recursive: true, force: true }));
@@ -104,8 +111,13 @@ test("a passing partial run never verifies, and edit_file invalidates earlier ve
 
   // Only the unrelated test file passes: that must not count as verification.
   let replies = [call("p", "run_tests", { target: "other.test.js" }), plan, done];
-  const partial = await runAgent({ base, source, reply: async () => replies.shift() ?? done, maxRounds: 3 });
+  let seen: Message[] = [];
+  const partial = await runAgent({ base, source, reply: async (messages) => { seen = messages; return replies.shift() ?? done; }, maxRounds: 4 });
   assert.equal(partial.status, "limit_reached");
+  // The exit check must say the run was partial, not that the tests failed: they passed.
+  const feedback = seen.at(-1)!.content!;
+  assert.match(feedback, /只运行了部分测试/);
+  assert.doesNotMatch(feedback, /没有通过/);
   assert.equal(partial.termination.verified, false);
   assert.ok(partial.tests.runs.some((run: any) => run.scope === "partial" && run.status === "passed"));
   assert.equal(partial.tests.latest, null, "前后对比只使用全量测试");
@@ -122,4 +134,28 @@ test("a passing partial run never verifies, and edit_file invalidates earlier ve
   assert.equal(stale.termination.verified, false);
   assert.equal(stale.statistics.successful_writes, 2);
   assert.equal(stale.tests.latest_is_current, false);
+});
+
+// Regression from the 2026-10-25 eval baseline: the model checked its fix with the sole test file as
+// target, the run counted as partial, and the misleading exit check cost it the rest of its rounds.
+test("fix verified by targeting the only test file passes the exit check", async t => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), "forge-target-"));
+  t.after(() => fs.rm(base, { recursive: true, force: true }));
+  const source = path.join(base, "source");
+  await fs.mkdir(source);
+  await fs.writeFile(path.join(source, "package.json"), '{"type":"module"}');
+  await fs.writeFile(path.join(source, "answer.js"), "export const answer = 0;\n");
+  await fs.writeFile(path.join(source, "answer.test.js"),
+    'import { test } from "node:test"; import assert from "node:assert/strict"; import { answer } from "./answer.js"; test("answer is 42", () => assert.equal(answer, 42));');
+  const call = (id: string, name: string, args = {}): Message => ({ role: "assistant", content: null,
+    tool_calls: [{ id, type: "function", function: { name, arguments: JSON.stringify(args) } }] });
+  const replies = [
+    call("w", "edit_file", { relative_path: "answer.js", old_str: "= 0", new_str: "= 42" }),
+    call("t", "run_tests", { target: "answer.test.js" }),
+    call("p", "update_plan", { steps: [{ id: "fix", description: "修复并验证", status: "completed" }] }),
+  ];
+  const report = await runAgent({ base, source, reply: async () => replies.shift() ?? { role: "assistant", content: "完成" }, maxRounds: 4 });
+  assert.equal(report.status, "passed");
+  assert.equal(report.statistics.model.rounds, 4);
+  assert.equal(report.tests.latest?.scope, "full");
 });

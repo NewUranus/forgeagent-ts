@@ -90,6 +90,18 @@ export class TestHistory {
     await fs.appendFile(path.join(this.taskDir, "tests.jsonl"), JSON.stringify({ ...run, stdout: result.stdout, stderr: result.stderr }) + "\n");
   }
 
+  /** Why the current code is not verified, for the exit-check feedback: the model acts on the wording. */
+  verificationIssue() {
+    const current = this.runs.filter(run => run.phase !== "baseline" && run.phase !== "apply" && run.revision === this.revision);
+    const full = current.filter(run => run.scope === "full").at(-1);
+    if (full) return full.status === "passed"
+      ? "最后一次修改后的全量测试结果无效，请重新运行全量 run_tests"
+      : `最后一次修改后的全量测试没有通过（${full.status}）`;
+    if (current.some(run => run.scope === "partial"))
+      return "最后一次修改后只运行了部分测试（指定了 target 或 name_pattern），部分测试不能作为最终验证；请不带参数运行一次全量 run_tests";
+    return "最后一次修改后还没有运行全量测试，请不带参数运行 run_tests";
+  }
+
   summary() {
     const baseline = this.runs.find(run => run.phase === "baseline") ?? null;
     // Partial runs stay in `runs` but never stand in for the full-suite comparison.

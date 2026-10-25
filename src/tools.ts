@@ -59,7 +59,7 @@ export const tools: ToolDefinition[] = [
   },
   {
     name: "run_tests",
-    description: "执行项目测试。不带参数时运行全量测试；target（测试文件，pytest 可用节点 ID）或 name_pattern（测试名正则）只运行部分测试，用于快速检查，不能代替结束前的全量验证。",
+    description: "执行项目测试。不带参数时运行全量测试；target（测试文件，pytest 可用节点 ID）或 name_pattern（测试名正则）只运行部分测试，用于快速检查，不能代替结束前的全量验证；target 恰好是项目唯一的测试文件时等同全量。结果中的 scope 为 full 或 partial。",
     inputSchema: schema({
       target: { type: "string" },
       name_pattern: { type: "string" },
@@ -171,6 +171,7 @@ export function dockerRunArgs(sandbox: SandboxConfig, root: string, name: string
 }
 
 // A selection runs only part of the suite; the result is marked partial and never counts as final verification.
+// A target that is the project's only test file runs the whole suite, so it counts as full.
 export async function runTests(
   root: string,
   timeout?: number,
@@ -179,7 +180,7 @@ export async function runTests(
 ): Promise<TestResult> {
   const limit = timeout ?? config.timeoutMs ?? 30000;
   const { target, namePattern } = selection;
-  const scope = target !== undefined || namePattern !== undefined ? "partial" : "full";
+  let scope: "full" | "partial" = target !== undefined || namePattern !== undefined ? "partial" : "full";
   let argv: string[];
   if (config.command) {
     if (scope === "partial") throw new Error("配置了自定义测试命令时不支持 target/name_pattern，请运行全量测试");
@@ -205,6 +206,9 @@ export async function runTests(
       const relative = path.relative(await fs.realpath(root), await projectPath(root, file)).split(path.sep).join("/");
       if (python ? !/(^|\/)test_.*\.py$/.test(relative) : !tests.includes(relative))
         throw new Error(`target 不是测试文件：${file}`);
+      // pytest also collects *_test.py, so a Python file target is full only when it is the sole file of either kind.
+      const suite = python ? files.filter((f) => /(^|\/)(test_[^/]*|[^/]*_test)\.py$/.test(f)) : tests;
+      if (namePattern === undefined && file === target && suite.length === 1 && suite[0] === relative) scope = "full";
     }
     // Inside a container the interpreters come from the image, not from this machine.
     argv = python

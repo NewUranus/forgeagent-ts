@@ -469,9 +469,7 @@ export async function runAgent(options: AgentOptions = {}) {
         const plan = await readPlanProgress(workspace.taskDir);
         if (!plan.all_completed) issues.push("计划未完成或无法读取");
 
-        if (!verified) {
-          issues.push("最后一次修改后的测试没有通过");
-        }
+        if (!verified) issues.push(testHistory.verificationIssue());
 
         // Exit check: compare every file with the baseline, whatever tool or process changed it.
         const tampering = findTestTampering(baseline, await snapshotFiles(workspace.projectDir));
