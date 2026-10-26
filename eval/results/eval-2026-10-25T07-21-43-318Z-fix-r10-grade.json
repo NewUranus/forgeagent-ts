@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "label": "fix-r10-grade",
+  "started_at": "2026-10-25T07:21:43.318Z",
+  "ended_at": "2026-10-25T07:23:30.768Z",
+  "repeat": 3,
+  "config": {
+    "mode": "api",
+    "models": [
+      "qwen3.7-plus"
+    ],
+    "strategy": "react",
+    "max_rounds": 10,
+    "mcp": false,
+    "features": {
+      "context": "window",
+      "truncate": true,
+      "summary": "rule",
+      "repoMap": true,
+      "projectNotes": true,
+      "loopGuard": true,
+      "docs": true
+    }
+  },
+  "totals": {
+    "tasks": 1,
+    "attempts": 3,
+    "passes": 3,
+    "pass_at_1": 1,
+    "pass_at_k": {
+      "k": 3,
+      "value": 1
+    },
+    "tasks_solved_once": 1,
+    "avg_tokens": 20823
+  },
+  "tasks": [
+    {
+      "task": "grade-boundaries",
+      "category": "边界条件",
+      "passes": 3,
+      "attempts": 3,
+      "avg_rounds": 7.333333333333333,
+      "avg_tool_calls": 8,
+      "avg_tokens": 20823,
+      "avg_duration_ms": 35636.333333333336,
+      "failures": {}
+    }
+  ],
+  "attempts": [
+    {
+      "task": "grade-boundaries",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 6,
+      "tool_calls": 8,
+      "total_tokens": 16088,
+      "duration_ms": 26431,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-21-43-323Z_fce4e48a",
+      "error": null
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 2,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 23123,
+      "duration_ms": 40906,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-22-09-952Z_11dc1cc6",
+      "error": null
+    },
+    {
+      "task": "grade-boundaries",
+      "attempt": 3,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 23258,
+      "duration_ms": 39572,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-25T07-22-51-025Z_85b8372c",
+      "error": null
+    }
+  ]
+}
