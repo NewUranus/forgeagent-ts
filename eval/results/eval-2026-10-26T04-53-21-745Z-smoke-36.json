@@ -1,0 +1,123 @@
+{
+  "schema_version": 2,
+  "label": "smoke-36",
+  "started_at": "2026-10-26T04:53:21.745Z",
+  "ended_at": "2026-10-26T04:54:26.263Z",
+  "repeat": 1,
+  "config": {
+    "mode": "api",
+    "models": [
+      "qwen3.6-plus"
+    ],
+    "strategy": "react",
+    "max_rounds": 10,
+    "mcp": false,
+    "features": {
+      "context": "window",
+      "truncate": true,
+      "summary": "rule",
+      "repoMap": true,
+      "projectNotes": true,
+      "loopGuard": true,
+      "docs": true,
+      "editTool": true,
+      "diagnostics": true
+    },
+    "context": {
+      "window_tokens": 32768,
+      "output_reserve_tokens": 4096
+    }
+  },
+  "totals": {
+    "tasks": 2,
+    "attempts": 2,
+    "passes": 2,
+    "pass_at_1": 1,
+    "pass_at_k": {
+      "k": 1,
+      "value": 1
+    },
+    "tasks_solved_once": 2,
+    "avg_tokens": 21752.5,
+    "median_tokens": 21752.5,
+    "avg_prompt_tokens": 20223,
+    "avg_completion_tokens": 1529.5,
+    "avg_rounds_with_dropping": 0
+  },
+  "tasks": [
+    {
+      "task": "grade-boundaries",
+      "category": "边界条件",
+      "passes": 1,
+      "attempts": 1,
+      "avg_rounds": 8,
+      "avg_tool_calls": 8,
+      "avg_tokens": 22540,
+      "median_tokens": 22540,
+      "avg_prompt_tokens": 21131,
+      "avg_completion_tokens": 1409,
+      "avg_rounds_with_dropping": 0,
+      "avg_duration_ms": 30342,
+      "failures": {}
+    },
+    {
+      "task": "load-all-async",
+      "category": "异步",
+      "passes": 1,
+      "attempts": 1,
+      "avg_rounds": 8,
+      "avg_tool_calls": 8,
+      "avg_tokens": 20965,
+      "median_tokens": 20965,
+      "avg_prompt_tokens": 19315,
+      "avg_completion_tokens": 1650,
+      "avg_rounds_with_dropping": 0,
+      "avg_duration_ms": 33858,
+      "failures": {}
+    }
+  ],
+  "attempts": [
+    {
+      "task": "grade-boundaries",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 22540,
+      "prompt_tokens": 21131,
+      "completion_tokens": 1409,
+      "rounds_with_dropping": 0,
+      "duration_ms": 30342,
+      "changed_files": [
+        "grade.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-26T04-53-21-747Z_22f1faec",
+      "error": null
+    },
+    {
+      "task": "load-all-async",
+      "attempt": 1,
+      "passed": true,
+      "status": "passed",
+      "reason": "completed",
+      "final_tests_passed": true,
+      "tests_modified": false,
+      "rounds": 8,
+      "tool_calls": 8,
+      "total_tokens": 20965,
+      "prompt_tokens": 19315,
+      "completion_tokens": 1650,
+      "rounds_with_dropping": 0,
+      "duration_ms": 33858,
+      "changed_files": [
+        "loader.ts"
+      ],
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-26T04-53-52-229Z_91acced6",
+      "error": null
+    }
+  ]
+}
