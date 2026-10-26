@@ -67,6 +67,8 @@ test("parseFeatures accepts the documented values and rejects others", () => {
     { context: "none", truncate: false, summary: "llm", repoMap: false, projectNotes: true });
   assert.throws(() => parseFeatures({ context: "full" }), /window、none/);
   assert.throws(() => parseFeatures({ truncate: "yes" }), /on 或 off/);
+  assert.deepEqual(parseFeatures({ "edit-tool": "off", diagnostics: "off" }), { editTool: false, diagnostics: false });
+  assert.throws(() => parseFeatures({ "edit-tool": "no" }), /--edit-tool 只能是 on 或 off/);
 });
 
 test("window keeps every message before the first turn fixed and inserts the summary right after it", () => {
@@ -244,4 +246,42 @@ test("context none sends the full history even over budget; truncation applies o
   assert.equal(none.requests.length, 2, "关闭上下文管理时不做客户端预算检查");
   assert.notEqual(none.report.termination.reason, "context_limit");
   assert.equal(none.report.task.options.features.context, "none");
+});
+
+test("edit-tool off withholds edit_file and refuses calls to it; diagnostics off drops the syntax check", async t => {
+  apiEnv(t);
+  const base = await temp(t);
+  const source = path.join(base, "source");
+  await fs.mkdir(source);
+  await fs.writeFile(path.join(source, "a.js"), "export const a = 1;\n");
+  const run = async (features: object) => {
+    const requests: any[] = [];
+    t.mock.method(globalThis, "fetch", async (_url: unknown, options: RequestInit) => {
+      requests.push(JSON.parse(options.body as string));
+      if (requests.length === 1) return reply(call("e", "edit_file", { relative_path: "a.js", old_str: "1", new_str: "2" }));
+      if (requests.length === 2) return reply(call("w", "write_file", { relative_path: "b.js", content: "export const b = (;\n" }));
+      return reply({ role: "assistant", content: "完成" });
+    });
+    const report = await runAgent({ base, source, mock: false, maxRounds: 3, features: { repoMap: false, ...features } });
+    const toolResult = (id: string) => requests.at(-1).messages.find((m: any) => m.tool_call_id === id).content;
+    return { report, tools: requests[0].tools, system: requests[0].messages[0].content, toolResult };
+  };
+
+  const on = await run({});
+  assert.ok(on.tools.some((tool: any) => tool.function.name === "edit_file"));
+  assert.match(on.system, /优先用 edit_file/);
+  assert.match(on.toolResult("e"), /已修改 a\.js/);
+  assert.match(on.toolResult("w"), /语法检查发现 \d+ 个问题/);
+
+  const off = await run({ editTool: false, diagnostics: false });
+  assert.ok(off.tools.some((tool: any) => tool.function.name === "write_file"));
+  assert.doesNotMatch(JSON.stringify(off.tools), /edit_file/, "write_file 的说明也不再提 edit_file");
+  assert.doesNotMatch(off.system, /edit_file/);
+  assert.match(off.system, /都用 write_file 写入完整内容/);
+  assert.match(off.toolResult("e"), /未知工具：edit_file/);
+  assert.equal(await fs.readFile(path.join(off.report.workspace, "a.js"), "utf8"), "export const a = 1;\n", "被拒绝的调用不能改文件");
+  assert.match(off.toolResult("w"), /已写入 b\.js/);
+  assert.doesNotMatch(off.toolResult("w"), /语法检查/);
+  assert.equal(off.report.statistics.successful_writes, 1);
+  assert.deepEqual([off.report.task.options.features.editTool, off.report.task.options.features.diagnostics], [false, false]);
 });

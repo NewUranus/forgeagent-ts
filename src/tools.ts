@@ -13,6 +13,16 @@ const MAX_FIND_RESULTS = 200;
 const MAX_SEARCH_FILE_BYTES = 1_000_000;
 // Tools that can change the working copy; any call invalidates earlier test verification.
 export const writeTools = new Set(["write_file", "edit_file"]);
+/** How the system prompts tell the model to change files, with or without edit_file on offer. */
+export const editRule = (editTool: boolean) => editTool
+  ? "修改已有文件优先用 edit_file，新建文件才用 write_file"
+  : "修改或新建文件都用 write_file 写入完整内容";
+/** The tool list without edit_file; write_file's description stops pointing at it. */
+export const withoutEditTool = (list: ToolDefinition[]) => list
+  .filter((tool) => tool.name !== "edit_file")
+  .map((tool) => tool.name === "write_file"
+    ? { ...tool, description: "用 content 覆盖整个文件，用于新建或修改文件，需要写入文件的完整内容。禁止修改测试文件。" }
+    : tool);
 const schema =(properties = {}, required: string[] = []) => ({
   type: "object",
   properties,
@@ -392,6 +402,8 @@ function pythonSyntax(file: string, content: string): Promise<string[] | null> {
 export interface ToolContext {
   testConfig?: TestConfig;
   docs?: DocsConfig;
+  /** false: write results carry no syntax check (ablation of the post-write diagnostics). */
+  diagnostics?: boolean;
 }
 export async function executeTool(
   root: string,
@@ -404,6 +416,7 @@ export async function executeTool(
   const allowed = Object.keys(definition.inputSchema.properties as object);
   if (Object.keys(args).some((k) => !allowed.includes(k)))
     throw new Error("存在未知参数");
+  const diagnose = (file: string, content: string) => context.diagnostics === false ? Promise.resolve("") : syntaxCheck(file, content);
   switch (name) {
     case "list_files":
       return listFiles(root);
@@ -425,7 +438,7 @@ export async function executeTool(
       assertTestSettingsUnchanged(relative, await fs.readFile(file, "utf8").catch(() => null), content);
       await fs.mkdir(path.dirname(file), { recursive: true });
       await fs.writeFile(file, content);
-      return `已写入 ${relative}${await syntaxCheck(file, content)}`;
+      return `已写入 ${relative}${await diagnose(file, content)}`;
     }
     case "edit_file": {
       const relative = stringArg(args, "relative_path");
@@ -434,7 +447,7 @@ export async function executeTool(
       const edited = applyEdit(original, stringArg(args, "old_str"), stringArg(args, "new_str"));
       assertTestSettingsUnchanged(relative, original, edited.content);
       await fs.writeFile(file, edited.content);
-      return `已修改 ${relative} 第 ${edited.line} 行起的内容${await syntaxCheck(file, edited.content)}`;
+      return `已修改 ${relative} 第 ${edited.line} 行起的内容${await diagnose(file, edited.content)}`;
     }
     case "run_tests":
       return runTests(root, undefined, {

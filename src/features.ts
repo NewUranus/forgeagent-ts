@@ -14,6 +14,10 @@ export interface AgentFeatures {
   loopGuard: boolean;
   /** Offer search_docs when the project has documentation or a docs index is configured. */
   docs: boolean;
+  /** Offer edit_file; off leaves write_file (whole-file rewrites) as the only way to change files. */
+  editTool: boolean;
+  /** Append a syntax check of the written file to write_file / edit_file results. */
+  diagnostics: boolean;
 }
 
 export const defaultFeatures: AgentFeatures = {
@@ -24,6 +28,8 @@ export const defaultFeatures: AgentFeatures = {
   projectNotes: true,
   loopGuard: true,
   docs: true,
+  editTool: true,
+  diagnostics: true,
 };
 
 const onOff = (name: string, value: string) => {
@@ -40,6 +46,7 @@ const oneOf = <T extends string>(name: string, value: string, allowed: readonly 
 /** Parse CLI strings; options left undefined keep their defaults. */
 export function parseFeatures(values: {
   context?: string; truncate?: string; summary?: string; "repo-map"?: string; "project-notes"?: string; "loop-guard"?: string; docs?: string;
+  "edit-tool"?: string; diagnostics?: string;
 }): Partial<AgentFeatures> {
   const features: Partial<AgentFeatures> = {};
   if (values.context !== undefined) features.context = oneOf("context", values.context, ["window", "none"] as const);
@@ -49,5 +56,7 @@ export function parseFeatures(values: {
   if (values["project-notes"] !== undefined) features.projectNotes = onOff("project-notes", values["project-notes"]);
   if (values["loop-guard"] !== undefined) features.loopGuard = onOff("loop-guard", values["loop-guard"]);
   if (values.docs !== undefined) features.docs = onOff("docs", values.docs);
+  if (values["edit-tool"] !== undefined) features.editTool = onOff("edit-tool", values["edit-tool"]);
+  if (values.diagnostics !== undefined) features.diagnostics = onOff("diagnostics", values.diagnostics);
   return features;
 }

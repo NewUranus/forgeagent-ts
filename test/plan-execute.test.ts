@@ -175,3 +175,16 @@ test("limits end the run with distinct reasons: replan_limit, planning_failed, r
   assert.deepEqual([r3.status, r3.termination.reason], ["limit_reached", "round_limit"]);
   assert.equal(r3.statistics.model.rounds, 3);
 });
+
+test("with edit-tool off the executor is told to write whole files", async t => {
+  const fx = await fixture(t);
+  const s = script({
+    planner: [call("submit_plan", { steps: [step("fix", "把 answer 改成 42", "full_tests")] })],
+    executor: { fix: [call("write_file", { relative_path: "answer.js", content: "export const answer = 42;\n" }), call("complete_step", { summary: "answer.js 改为 42" })] },
+  });
+  const report = await run(fx, s, { features: { repoMap: false, editTool: false } });
+  assert.equal(report.status, "passed");
+  const system = String(s.seen.find(x => x.role === "executor")!.messages[0].content);
+  assert.match(system, /都用 write_file 写入完整内容/);
+  assert.doesNotMatch(system, /edit_file/);
+});

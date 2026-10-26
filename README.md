@@ -224,6 +224,8 @@ Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺�
 | `--project-notes on\|off` | `on` | 固定上下文中加入根目录的 `AGENTS.md` / `CLAUDE.md`（作为数据） |
 | `--loop-guard on\|off` | `on` | 重复检测（见“模型调用与重复检测”） |
 | `--docs on\|off` | `on` | 有文档（或 `--docs-index`）时向模型提供 `search_docs`（见“RAG”） |
+| `--edit-tool on\|off` | `on` | 提供 `edit_file`；`off` 时只剩 `write_file` 整份写入，系统提示和 `write_file` 的说明随之改写，模型仍调用 `edit_file` 时按未知工具拒绝 |
+| `--diagnostics on\|off` | `on` | `write_file` / `edit_file` 的结果附带写入后的语法检查 |
 | `--vector-store memory\|qdrant` | `memory` | `--docs-index` 的向量放在哪里检索：内存精确扫描，或本地 Qdrant（见“向量数据库：Qdrant”） |
 
 ```bash
@@ -261,7 +263,7 @@ npm run eval -- --mock --repeat 1                          # 不调用 API，只
 
 **通过判定**比 Agent 的自我报告更严格：Agent 以 `passed` 结束、评测脚本在最终工作副本上**独立重跑**全量测试通过，且没有修改测试文件，三者同时满足才算通过。单次运行出错（模型故障、准备命令失败等）只记为未通过，不会中断评测。
 
-结果写到 `eval/results/eval-<时间戳>[-标签].md` 和 `.json`：每个任务的通过次数、平均轮数、工具调用数、token（含模型摘要调用）、耗时和未通过原因，以及 pass@1 和 pass@N（无偏估计）。JSON 里的 `task_dir` 指向每次运行的完整记录。任务按顺序执行，目前不支持并发。
+结果写到 `eval/results/eval-<时间戳>[-标签].md` 和 `.json`：每个任务的通过次数、平均轮数、工具调用数、token（含模型摘要调用；平均数和中位数，输入、输出分开）、平均裁剪轮数（`rounds_with_dropping`，为 0 说明上下文管理没起作用）、耗时和未通过原因，以及 pass@1 和 pass@N（无偏估计）。`config.context` 记录本次使用的 `CONTEXT_WINDOW_TOKENS` 和 `CONTEXT_OUTPUT_RESERVE_TOKENS`。JSON 里的 `task_dir` 指向每次运行的完整记录。任务按顺序执行，目前不支持并发。
 
 ## 代码对应
 

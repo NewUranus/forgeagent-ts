@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { runAgent, type AgentOptions } from "../agent.js";
 import { runTests, type TestConfig } from "../tools.js";
+import { contextConfig } from "../config.js";
 
 // npm run eval: run every task in eval/tasks N times and summarize pass rate and cost.
 // Task layout: eval/tasks/<name>/{instruction.md, project/, task.json?}; solution/ (optional) is for
@@ -53,6 +54,11 @@ export interface Attempt {
   rounds: number;
   tool_calls: number;
   total_tokens: number | null;
+  /** Input and output halves of total_tokens; output is what whole-file rewrites inflate. */
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  /** Model turns whose request window left out older turns; 0 means context management never kicked in. */
+  rounds_with_dropping: number;
   duration_ms: number;
   changed_files: string[];
   task_dir: string | null;
@@ -68,6 +74,11 @@ export interface TaskSummary {
   avg_tool_calls: number;
   /** Mean over attempts whose usage was reported; null when no attempt reported tokens (mock, replay). */
   avg_tokens: number | null;
+  /** One long run can pull the mean far up; the median shows the typical run. */
+  median_tokens: number | null;
+  avg_prompt_tokens: number | null;
+  avg_completion_tokens: number | null;
+  avg_rounds_with_dropping: number;
   avg_duration_ms: number;
   /** Termination reasons of the failed attempts, e.g. { round_limit: 2 }. */
   failures: Record<string, number>;
@@ -97,9 +108,29 @@ export function passAtK(n: number, c: number, k: number) {
 }
 
 const mean = (values: number[]) => values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+const median = (values: number[]) => {
+  const sorted = [...values].sort((a, b) => a - b), middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+/** Mean and median of the reported values; null when no attempt reported any (mock, replay). */
+export function tokenStats(attempts: Attempt[], key: "total_tokens" | "prompt_tokens" | "completion_tokens") {
+  const values = attempts.map((a) => a[key]).filter((v): v is number => v !== null);
+  return values.length ? { mean: mean(values), median: median(values) } : null;
+}
+
+/** Token and context fields shared by the per-task rows and the totals. */
+function costFields(attempts: Attempt[]) {
+  const total = tokenStats(attempts, "total_tokens");
+  return {
+    avg_tokens: total?.mean ?? null,
+    median_tokens: total?.median ?? null,
+    avg_prompt_tokens: tokenStats(attempts, "prompt_tokens")?.mean ?? null,
+    avg_completion_tokens: tokenStats(attempts, "completion_tokens")?.mean ?? null,
+    avg_rounds_with_dropping: mean(attempts.map((a) => a.rounds_with_dropping)),
+  };
+}
 
 export function summarizeTask(task: EvalTask, attempts: Attempt[]): TaskSummary {
-  const tokens = attempts.map((a) => a.total_tokens).filter((t): t is number => t !== null);
   const failures: Record<string, number> = {};
   for (const a of attempts.filter((a) => !a.passed)) {
     // A run the agent called passed but the harness rejected needs its own label, or it reads as "completed".
@@ -111,7 +142,7 @@ export function summarizeTask(task: EvalTask, attempts: Attempt[]): TaskSummary 
     passes: attempts.filter((a) => a.passed).length, attempts: attempts.length,
     avg_rounds: mean(attempts.map((a) => a.rounds)),
     avg_tool_calls: mean(attempts.map((a) => a.tool_calls)),
-    avg_tokens: tokens.length ? mean(tokens) : null,
+    ...costFields(attempts),
     avg_duration_ms: mean(attempts.map((a) => a.duration_ms)),
     failures,
   };
@@ -134,7 +165,8 @@ async function runAttempt(task: EvalTask, attempt: number, options: EvalOptions)
   } catch (error) {
     // runAgent records most failures in its report; this catches the ones before a working copy exists.
     return { task: task.name, attempt, passed: false, status: "error", reason: "eval_error", final_tests_passed: null,
-      tests_modified: false, rounds: 0, tool_calls: 0, total_tokens: null, duration_ms: Math.round(performance.now() - start),
+      tests_modified: false, rounds: 0, tool_calls: 0, total_tokens: null, prompt_tokens: null, completion_tokens: null,
+      rounds_with_dropping: 0, duration_ms: Math.round(performance.now() - start),
       changed_files: [], task_dir: null, error: String(error) };
   }
   // Re-run the suite ourselves instead of trusting the run's own verdict.
@@ -143,15 +175,18 @@ async function runAttempt(task: EvalTask, attempt: number, options: EvalOptions)
     const result = await runTests(report.workspace, undefined, {}, testConfig);
     finalTests = result.exit_code === 0 && !result.time_out;
   } catch { finalTests = null; }
-  const tokens = report.statistics.model.usage.total_tokens;
+  // Summary calls are model calls too; leave them out and llm summaries would look free.
+  const { usage, summary } = report.statistics.model;
+  const tokens = (key: "total_tokens" | "prompt_tokens" | "completion_tokens") =>
+    usage[key] === null ? null : usage[key] + (summary.usage[key] ?? 0);
   return {
     task: task.name, attempt,
     passed: report.status === "passed" && finalTests === true && !report.changes.tests_modified,
     status: report.status, reason: report.termination.reason,
     final_tests_passed: finalTests, tests_modified: report.changes.tests_modified,
     rounds: report.statistics.model.rounds, tool_calls: report.statistics.tool_calls,
-    // Summary calls are model calls too; leave them out and llm summaries would look free.
-    total_tokens: tokens === null ? null : tokens + (report.statistics.model.summary.usage.total_tokens ?? 0),
+    total_tokens: tokens("total_tokens"), prompt_tokens: tokens("prompt_tokens"), completion_tokens: tokens("completion_tokens"),
+    rounds_with_dropping: report.statistics.context.rounds_with_dropping,
     duration_ms: report.timing.duration_ms, changed_files: report.changed_files,
     task_dir: report.task_dir, error: report.termination.error,
   };
@@ -178,7 +213,7 @@ export async function runEval(options: EvalOptions) {
   const summaries = tasks.map((task) => summarizeTask(task, attempts.filter((a) => a.task === task.name)));
   const passes = attempts.filter((a) => a.passed).length;
   const result = {
-    schema_version: 1,
+    schema_version: 2,
     label: options.label ?? null,
     started_at: startedAt.toISOString(),
     ended_at: new Date().toISOString(),
@@ -191,8 +226,7 @@ export async function runEval(options: EvalOptions) {
       // pass@k with k = repeat: the share of tasks solved at least once.
       pass_at_k: { k: repeat, value: mean(summaries.map((s) => passAtK(s.attempts, s.passes, repeat))) },
       tasks_solved_once: summaries.filter((s) => s.passes > 0).length,
-      avg_tokens: summaries.every((s) => s.avg_tokens === null) ? null
-        : mean(attempts.map((a) => a.total_tokens).filter((t): t is number => t !== null)),
+      ...costFields(attempts),
     },
     tasks: summaries,
     attempts,
@@ -215,11 +249,21 @@ async function runConfig(attempts: Attempt[], options: EvalOptions) {
     max_rounds: report?.task.options.max_rounds ?? options.agent?.maxRounds ?? null,
     mcp: Boolean(options.agent?.mcp),
     features: report?.task.options.features ?? options.agent?.features ?? null,
+    // Context ablations shrink the window through the environment, so record what the runs used.
+    context: windowSettings(),
   };
+}
+
+function windowSettings() {
+  try {
+    const { windowTokens, outputReserveTokens } = contextConfig();
+    return { window_tokens: windowTokens, output_reserve_tokens: outputReserveTokens };
+  } catch { return null; } // Invalid settings only break API runs; mock and replay never read them.
 }
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const fixed = (value: number) => value.toFixed(1);
+const count = (value: number | null) => value === null ? "—" : String(Math.round(value));
 
 export function renderEval(result: Awaited<ReturnType<typeof runEval>>["result"]) {
   const { config, totals, repeat } = result;
@@ -231,14 +275,16 @@ export function renderEval(result: Awaited<ReturnType<typeof runEval>>["result"]
     `- 时间：${result.started_at} → ${result.ended_at}`,
     `- 模式：${config.mode ?? "未知"}；模型：${config.models.join(", ") || "不适用"}；策略：${config.strategy}；最大轮数：${config.max_rounds ?? "默认"}${config.mcp ? "；MCP" : ""}`,
     `- 功能开关：${features}`,
+    `- 上下文窗口：${config.context ? `${config.context.window_tokens} tokens（输出预留 ${config.context.output_reserve_tokens}）` : "配置无效"}`,
     `- 每个任务 ${repeat} 次，共 ${totals.attempts} 次运行`,
     `- **通过 ${totals.passes}/${totals.attempts}**；pass@1 = ${percent(totals.pass_at_1)}${totals.pass_at_k.k > 1 ? `；pass@${totals.pass_at_k.k} = ${percent(totals.pass_at_k.value)}` : ""}（至少通过一次的任务 ${totals.tasks_solved_once}/${totals.tasks}）`,
+    `- token：平均 ${count(totals.avg_tokens)}，中位数 ${count(totals.median_tokens)}，平均输入/输出 ${count(totals.avg_prompt_tokens)} / ${count(totals.avg_completion_tokens)}；平均裁剪轮数 ${fixed(totals.avg_rounds_with_dropping)}`,
     "",
-    "| 任务 | 类型 | 通过 | 平均轮数 | 平均工具调用 | 平均 token | 平均耗时 | 未通过原因 |",
-    "|---|---|---|---|---|---|---|---|",
-    ...result.tasks.map((s) => `| ${s.task} | ${s.category || "—"} | ${s.passes}/${s.attempts} | ${fixed(s.avg_rounds)} | ${fixed(s.avg_tool_calls)} | ${s.avg_tokens === null ? "—" : Math.round(s.avg_tokens)} | ${(s.avg_duration_ms / 1000).toFixed(1)}s | ${failures(s)} |`),
+    "| 任务 | 类型 | 通过 | 平均轮数 | 平均工具调用 | 平均 token | token 中位数 | 平均输入/输出 token | 平均裁剪轮数 | 平均耗时 | 未通过原因 |",
+    "|---|---|---|---|---|---|---|---|---|---|---|",
+    ...result.tasks.map((s) => `| ${s.task} | ${s.category || "—"} | ${s.passes}/${s.attempts} | ${fixed(s.avg_rounds)} | ${fixed(s.avg_tool_calls)} | ${count(s.avg_tokens)} | ${count(s.median_tokens)} | ${count(s.avg_prompt_tokens)} / ${count(s.avg_completion_tokens)} | ${fixed(s.avg_rounds_with_dropping)} | ${(s.avg_duration_ms / 1000).toFixed(1)}s | ${failures(s)} |`),
     "",
-    "通过 = Agent 以 passed 结束、评测脚本独立重跑全量测试通过、且没有修改测试文件。token 含模型摘要调用；“—”表示没有可用的用量（mock/回放）。",
+    "通过 = Agent 以 passed 结束、评测脚本独立重跑全量测试通过、且没有修改测试文件。token 含模型摘要调用；“—”表示没有可用的用量（mock/回放）。API 运行中裁剪轮数为 0，说明上下文管理没有起作用（mock/回放不裁剪）。",
     "每次运行的完整记录见 JSON 里的 task_dir。",
     "",
   ].join("\n");

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { loadTasks, passAtK, runEval } from "../src/eval/run.ts";
+import { loadTasks, passAtK, runEval, tokenStats, type Attempt } from "../src/eval/run.ts";
 import { runTests } from "../src/tools.ts";
 import type { Message } from "../src/types.ts";
 
@@ -48,6 +48,13 @@ test("passAtK matches the unbiased estimator", () => {
   assert.equal(passAtK(3, 1, 3), 1);
   assert.ok(Math.abs(passAtK(5, 2, 2) - 0.7) < 1e-12); // 1 - C(3,2)/C(5,2)
   assert.throws(() => passAtK(2, 1, 3));
+});
+
+test("tokenStats skips runs without usage and takes the middle value or the mean of the middle two", () => {
+  const runs = (values: (number | null)[]) => values.map(v => ({ total_tokens: v }) as Attempt);
+  assert.deepEqual(tokenStats(runs([100, null, 400, 200]), "total_tokens"), { mean: 700 / 3, median: 200 });
+  assert.deepEqual(tokenStats(runs([10, 40, 20, 1000]), "total_tokens"), { mean: 267.5, median: 30 });
+  assert.equal(tokenStats(runs([null, null]), "total_tokens"), null);
 });
 
 const call = (name: string, args: unknown): Message => ({ role: "assistant", content: null,
@@ -119,4 +126,35 @@ test("an agent verdict of passed is not enough when the final suite fails", asyn
   assert.equal(attempt.final_tests_passed, false);
   assert.equal(attempt.passed, false);
   assert.deepEqual(result.tasks[0].failures, { final_tests_failed: 1 });
+});
+
+test("API runs record input and output tokens and the context window used", async t => {
+  const settings = { MODEL_PROVIDER: "EVAL_TEST", EVAL_TEST_API_KEY: "test-only", EVAL_TEST_BASE_URL: "https://example.invalid/v1",
+    EVAL_TEST_MODEL: "eval-test", CONTEXT_WINDOW_TOKENS: "20000", CONTEXT_OUTPUT_RESERVE_TOKENS: "1000" };
+  const previous = Object.keys(settings).map(key => [key, process.env[key]] as const);
+  t.after(() => { for (const [key, value] of previous) if (value === undefined) delete process.env[key]; else process.env[key] = value; });
+  Object.assign(process.env, settings);
+  const root = await temp(t), tasksDir = path.join(root, "tasks");
+  await fs.mkdir(path.join(tasksDir, "noop", "project"), { recursive: true });
+  await fs.writeFile(path.join(tasksDir, "noop", "instruction.md"), "看一眼");
+  await fs.writeFile(path.join(tasksDir, "noop", "task.json"), JSON.stringify({ test_command: "true" }));
+  await fs.writeFile(path.join(tasksDir, "noop", "project", "a.txt"), "x");
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    const message = calls % 2 ? call("list_files", {}) : { role: "assistant", content: "完成" };
+    return new Response(JSON.stringify({ choices: [{ message }], usage: { prompt_tokens: 100, completion_tokens: 7, total_tokens: 107 } }),
+      { headers: { "Content-Type": "application/json" } });
+  });
+  const { result } = await runEval({ tasksDir, repeat: 1, outDir: path.join(root, "out"), log: () => {},
+    agent: { base: path.join(root, "base"), maxRounds: 2, features: { repoMap: false } } });
+  const [attempt] = result.attempts;
+  assert.equal(attempt.rounds, 2);
+  assert.deepEqual([attempt.prompt_tokens, attempt.completion_tokens, attempt.total_tokens], [200, 14, 214]);
+  assert.equal(attempt.rounds_with_dropping, 0);
+  assert.deepEqual([result.totals.median_tokens, result.totals.avg_prompt_tokens, result.totals.avg_completion_tokens], [214, 200, 14]);
+  assert.deepEqual(result.config.context, { window_tokens: 20000, output_reserve_tokens: 1000 });
+  const markdown = await fs.readFile(path.join(root, "out", (await fs.readdir(path.join(root, "out"))).find(f => f.endsWith(".md"))!), "utf8");
+  assert.match(markdown, /上下文窗口：20000 tokens（输出预留 1000）/);
+  assert.match(markdown, /\| noop \| — \| 0\/1 \| 2\.0 \| 1\.0 \| 214 \| 214 \| 200 \/ 14 \| 0\.0 \|/);
 });
