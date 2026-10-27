@@ -270,7 +270,7 @@ npm run eval -- --mock --repeat 1                          # 不调用 API，只
 
 每个任务是一个目录：`instruction.md`（给 Agent 的任务，写法类似 issue）、`project/`（注入了 bug 的小项目和测试）、`task.json`（bug 类型，可选 `test_command`）、`solution/`（参考修复，只用于测试检查任务本身，不会复制给 Agent）。现有 10 个 TypeScript 任务，覆盖 off-by-one、边界条件、空值、异步、跨文件调用、类型转换、副作用、字符串处理、数据结构和错误处理；`test/eval.test.ts` 保证每个任务修复前测试失败、套用参考修复后通过。
 
-**通过判定**比 Agent 的自我报告更严格：Agent 以 `passed` 结束、评测脚本在最终工作副本上**独立重跑**全量测试通过，且没有修改测试文件，三者同时满足才算通过。单次运行出错（模型故障、准备命令失败等）只记为未通过，不会中断评测。
+**通过判定**比 Agent 的自我报告更严格：Agent 以 `passed` 结束、评测脚本在最终工作副本上**独立重跑**全量测试通过，且没有修改测试文件，三者同时满足才算通过。单次运行出错（模型故障、准备命令失败等）只记为未通过，不会中断评测；例外是账户或配置错误（401、403、404 或额度耗尽），后面的运行会以同样的方式失败，所以评测在这次运行后停止，结果里的 `stopped_early` 记录停在第几次、跳过了几次，pass@1 和 pass@k 只统计已经运行的部分。
 
 结果写到 `eval/results/eval-<时间戳>[-标签].md` 和 `.json`：每个任务的通过次数、平均轮数、工具调用数、token（含模型摘要调用；平均数和中位数，输入、输出分开）、平均裁剪轮数（`rounds_with_dropping`，为 0 说明上下文管理没起作用）、耗时和未通过原因，以及 pass@1 和 pass@N（无偏估计）。`config.context` 记录本次使用的 `CONTEXT_WINDOW_TOKENS` 和 `CONTEXT_OUTPUT_RESERVE_TOKENS`。JSON 里的 `task_dir` 指向每次运行的完整记录。任务按顺序执行，目前不支持并发。
 
@@ -285,7 +285,7 @@ npm run faults -- --scenarios 429-backoff,429-stream        # 只跑部分场景
 
 目前是 8 个 429 场景：Retry-After 秒数和 HTTP 日期、无 Retry-After 的退避、重试耗尽、Retry-After 超过 2 分钟、运行中途限流、流式模式、额度耗尽（`insufficient_quota`）。每个场景检查结束原因、重试次数、每轮请求数和 `meta.json` 里的重试记录、重试前等待时间、重试请求是否与首次完全相同；应当恢复的场景还要求状态、轮数、token 数和改动都与录制相同。结果写到 `eval/results/faults-<时间戳>.md` 和 `.json`。
 
-已知未通过：额度耗尽的 429 仍会重试 3 次（`isRetryable` 只看状态码）。
+额度耗尽按响应内容识别（`insufficient_quota`、`exceeded your current quota`、`quota exhausted`、余额不足等），无论状态码是 429 还是 403 都不重试。最近一次结果 8/8 符合预期（`eval/results/faults-2026-10-27T09-55-03-820Z.md`）。
 
 ## 代码对应
 

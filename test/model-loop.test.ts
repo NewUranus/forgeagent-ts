@@ -4,7 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { ApiError, parseRetryAfter } from "../src/config.ts";
-import { backoffDelay, isContextOverflow, isRetryable, withRetry } from "../src/model/retry.ts";
+import { backoffDelay, isAccountError, isContextOverflow, isQuotaExhausted, isRetryable, withRetry } from "../src/model/retry.ts";
 import { assembleChunks, parseSSE } from "../src/model/stream.ts";
 import { LoopDetector, stableStringify } from "../src/loop.ts";
 import { estimateRequestToken } from "../src/context/context.ts";
@@ -63,6 +63,20 @@ test("only transient failures are retried; overflow is recognised from the error
   assert.ok(isContextOverflow(new ApiError(400, "Range of input length should be [1, 30720]", null)));
   assert.ok(!isContextOverflow(new ApiError(400, "invalid tool schema", null)));
   assert.ok(!isContextOverflow(new ApiError(500, "context length", null)));
+});
+
+test("an exhausted quota is never retried, whatever the status; a plain rate limit still is", () => {
+  const openai = new ApiError(429, '{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota","code":"insufficient_quota"}}', null);
+  // DashScope's reply when the free tier ran out (recorded 2026-10-25).
+  const dashscope = new ApiError(403, '{"error":{"message":"Free quota exhausted. To continue accessing the model on a paid basis, please add funds or disable the \\"use free tier only\\" mode in the management console.","type":"insufficient_quota","code":"insufficient_quota"}}', null);
+  const rateLimit = new ApiError(429, '{"error":{"message":"Rate limit reached for requests per min (RPM): Limit 60, Used 60, Requested 1.","type":"requests","code":"rate_limit_exceeded"}}', 2000);
+  for (const quota of [openai, dashscope, new ApiError(429, "账户余额不足", null)]) {
+    assert.ok(isQuotaExhausted(quota) && !isRetryable(quota) && isAccountError(quota), quota.body.slice(0, 40));
+  }
+  assert.ok(!isQuotaExhausted(rateLimit) && isRetryable(rateLimit) && !isAccountError(rateLimit));
+  assert.ok(!isQuotaExhausted(new ApiError(500, "insufficient_quota", null)), "5xx 不按额度耗尽处理");
+  for (const status of [401, 403, 404]) assert.ok(isAccountError(new ApiError(status, "", null)), String(status));
+  assert.ok(!isAccountError(new ApiError(400, "bad request", null)));
 });
 
 test("backoff uses full jitter under an exponential cap", () => {

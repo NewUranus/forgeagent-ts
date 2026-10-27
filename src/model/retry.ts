@@ -24,9 +24,23 @@ const MAX_SERVER_WAIT_MS = 120000;
  * 400/401/403/404 and context overflow would fail again with the same request.
  */
 export function isRetryable(error: unknown): boolean {
-  if (error instanceof ApiError) return [408, 409, 425, 429].includes(error.status) || error.status >= 500;
+  if (error instanceof ApiError) return !isQuotaExhausted(error) && ([408, 409, 425, 429].includes(error.status) || error.status >= 500);
   if (error instanceof Error) return error.name === "TypeError" || error.name === "TimeoutError" || error.name === "AbortError" || error.name === "StreamIdleError";
   return false;
+}
+
+/**
+ * Out of quota or balance: nothing works until a person adds funds. Some providers send this as 429,
+ * the same status as a short rate limit, so only the body tells them apart.
+ */
+export function isQuotaExhausted(error: unknown): boolean {
+  return error instanceof ApiError && error.status >= 400 && error.status < 500 &&
+    /insufficient_quota|billing_hard_limit|exceeded your current quota|quota (?:is |has been )?exhausted|arrearage|余额不足|欠费|额度(?:已)?(?:用尽|耗尽|不足)/i.test(error.body);
+}
+
+/** Every later call fails the same way until a person fixes the account or settings: key, access, model name, quota. */
+export function isAccountError(error: unknown): boolean {
+  return isQuotaExhausted(error) || (error instanceof ApiError && [401, 403, 404].includes(error.status));
 }
 
 /** The request asked for more tokens than the model accepts; only a smaller request can succeed. */

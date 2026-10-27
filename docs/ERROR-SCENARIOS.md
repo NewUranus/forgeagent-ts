@@ -13,7 +13,7 @@ ForgeAgent 可能遇到的错误场景，包括还没有实现处理的场景。
   - **未评测**：没有找到对应的测试。
   - 目前没有任何场景用真实模型评测过"恢复率"。
 
-**汇总**：故障注入 3 个（同时有单元测试），只有单元测试 29 个，未评测 21 个（其中 6 个是还没实现的功能）。另外，故障注入评测中新发现了 1 个问题（第 54 条）。
+**汇总**：故障注入 3 个（同时有单元测试），只有单元测试 29 个，未评测 21 个（其中 6 个是还没实现的功能）。另外，故障注入评测中新发现了 1 个问题（第 54 条），已于 2026-10-27 修复。
 
 ## 一、模型 API 层
 
@@ -23,7 +23,7 @@ ForgeAgent 可能遇到的错误场景，包括还没有实现处理的场景。
 | 2 | 5xx / 408 / 409 / 425 | 代理返回对应状态码 | 指数退避加抖动后重试 | 已实现 | `src/model/retry.ts`、`src/model/client.ts` | 否 | 1 | 单元测试 | `API run retries transient failures…`（假 fetch 返回 503）；`isRetryable` 状态码列表 |
 | 3 | 重试次数耗尽 | 连续 4 次失败 | `model_error`，报告照常写出 | 已实现 | `src/model/retry.ts`、`src/agent.ts` | 否 | 1 | **故障注入** | `429-exhausted` 符合；单元测试中 503 连续失败 |
 | 4 | Retry-After 超过 2 分钟 | 429 + `Retry-After: 300` | 不等待，直接失败 | 已实现 | `src/model/retry.ts` | 否 | 1 | **故障注入** | `429-wait-too-long` 符合；单元测试 `longWait` |
-| 5 | 401 / 403 / 404（密钥、额度或模型名错误） | 代理返回对应状态码 | 不重试，立即 `model_error` | 已实现 | `src/model/retry.ts` | 否 | 1 | 单元测试 | `isRetryable`、`withRetry` 401；真实评测中出现过 403 `insufficient_quota`（`eval/results/eval-2026-10-25T07-27-17-273Z-fix-r10-2tasks-report.md`） |
+| 5 | 401 / 403 / 404（密钥、额度或模型名错误） | 代理返回对应状态码 | 不重试，立即 `model_error`；评测在这次运行后停止 | 已实现 | `src/model/retry.ts`、`src/eval/run.ts` | 否 | 1 | 单元测试 | `isRetryable`、`withRetry` 401；真实评测中出现过 403 `insufficient_quota`（`eval/results/eval-2026-10-25T07-27-17-273Z-fix-r10-2tasks-report.md`） |
 | 6 | 普通 400 参数错误 | 代理返回 400 | 不重试 | 已实现 | `src/model/retry.ts` | 否 | 1 | 单元测试 | `isRetryable` 400 |
 | 7 | 网络断开 / DNS 失败 | 代理销毁 socket | 按网络错误重试 | 已实现 | `src/model/retry.ts` | 否 | 1 | 单元测试（部分） | 只断言了 `TypeError` 可重试，没有真实断开连接 |
 | 8 | 非流式请求超时 | 代理挂起超过 60 秒 | 超时后重试 | 已实现 | `src/config.ts`、`src/model/retry.ts` | 否 | 1 | 未评测 | — |
@@ -92,4 +92,4 @@ ForgeAgent 可能遇到的错误场景，包括还没有实现处理的场景。
 
 | # | 场景 | 模拟方式 | 预期行为 | 实际行为 | 拦截文件 | 需要 token | 次数 | 评测状态 |
 |---|---|---|---|---|---|---|---|---|
-| 54 | 429 + `insufficient_quota`（额度耗尽） | 代理返回 429，body 带 `insufficient_quota` | 不重试，立即失败；评测中连续出现时停止整次评测 | **重试 3 次后才失败**（`isRetryable` 只看状态码）；评测也不会提前停止 | `src/model/retry.ts`（需修改）、`src/eval/run.ts`（需修改） | 否 | 1 | **故障注入：不符合预期**（`429-insufficient-quota`，`test/faults.test.ts` 中标为 todo） |
+| 54 | 429 + `insufficient_quota`（额度耗尽） | 代理返回 429，body 带 `insufficient_quota` | 不重试，立即失败；评测停止 | 修复前：重试 3 次后才失败，评测也不停止。**已修复**：`isQuotaExhausted` 按响应内容识别，`isRetryable` 不再重试；报告记录 `account_error`，评测遇到后停止 | `src/model/retry.ts`、`src/agent.ts`、`src/eval/run.ts` | 否 | 1 | **故障注入：符合预期**（`429-insufficient-quota`）；单元测试 `an exhausted quota is never retried…`、`an account error stops the eval…` |
