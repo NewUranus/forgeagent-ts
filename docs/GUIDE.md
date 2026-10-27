@@ -274,6 +274,19 @@ npm run eval -- --mock --repeat 1                          # 不调用 API，只
 
 结果写到 `eval/results/eval-<时间戳>[-标签].md` 和 `.json`：每个任务的通过次数、平均轮数、工具调用数、token（含模型摘要调用；平均数和中位数，输入、输出分开）、平均裁剪轮数（`rounds_with_dropping`，为 0 说明上下文管理没起作用）、耗时和未通过原因，以及 pass@1 和 pass@N（无偏估计）。`config.context` 记录本次使用的 `CONTEXT_WINDOW_TOKENS` 和 `CONTEXT_OUTPUT_RESERVE_TOKENS`。JSON 里的 `task_dir` 指向每次运行的完整记录。任务按顺序执行，目前不支持并发。
 
+### 故障注入
+
+`npm run faults` 检查错误处理在真实运行路径上是否按设计工作，不调用模型、不花 token。`eval/faults/recordings/pagination-last-page/` 保存了一次真实通过的运行（6 轮的原始 API 响应和最终改动）；本地代理冒充模型服务按顺序返回这些响应，并在指定的轮次和第几次请求注入 HTTP 错误。被注入故障的请求不消耗录制，所以重试成功后模型拿到的还是同一轮的回答，正常结果就是“和录制一模一样”。Agent 走真实 API 模式（使用独立的 `FAULTPROXY_*` 设置，不读取 `.env` 里的密钥）。
+
+```bash
+npm run faults                                              # 全部场景
+npm run faults -- --scenarios 429-backoff,429-stream        # 只跑部分场景
+```
+
+目前是 8 个 429 场景：Retry-After 秒数和 HTTP 日期、无 Retry-After 的退避、重试耗尽、Retry-After 超过 2 分钟、运行中途限流、流式模式、额度耗尽（`insufficient_quota`）。每个场景检查结束原因、重试次数、每轮请求数和 `meta.json` 里的重试记录、重试前等待时间、重试请求是否与首次完全相同；应当恢复的场景还要求状态、轮数、token 数和改动都与录制相同。结果写到 `eval/results/faults-<时间戳>.md` 和 `.json`。
+
+已知未通过：额度耗尽的 429 仍会重试 3 次（`isRetryable` 只看状态码）。
+
 ## 代码对应
 
 | Python | TypeScript |

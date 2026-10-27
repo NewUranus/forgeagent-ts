@@ -52,7 +52,7 @@ function parseTestConfig(values: { "test-command"?: string; "test-timeout"?: str
   return config;
 }
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "edit-tool": { type: "string" }, diagnostics: { type: "string" }, subagents: { type: "string" }, "docs-index": { type: "string" }, "vector-store": { type: "string" }, qdrant: { type: "boolean" }, sizes: { type: "string" }, quantization: { type: "boolean" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, verbose: { type: "boolean" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "edit-tool": { type: "string" }, diagnostics: { type: "string" }, subagents: { type: "string" }, "docs-index": { type: "string" }, "vector-store": { type: "string" }, qdrant: { type: "boolean" }, sizes: { type: "string" }, quantization: { type: "boolean" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, scenarios: { type: "string" }, verbose: { type: "boolean" } } });
   const [command, action, argument] = positionals;
   if (command === "agent") {
     const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values),
@@ -78,6 +78,16 @@ async function main() {
         testConfig: parseTestConfig(values), docs: parseDocs(values), strategy: parseStrategy(values.strategy), planLimits: parsePlanLimits(values) },
     });
     console.log(`\n通过 ${result.totals.passes}/${result.totals.attempts}，pass@1 = ${(result.totals.pass_at_1 * 100).toFixed(1)}%\n汇总：${files.markdown}\n明细：${files.json}`);
+  } else if (command === "faults") {
+    const { runFaults } = await import("./eval/faults.js");
+    const { summary, files } = await runFaults({
+      recordingDir: path.join(ROOT, "eval", "faults", "recordings", "pagination-last-page"),
+      tasksDir: path.join(ROOT, "eval", "tasks"),
+      only: values.scenarios?.split(",").map(name => name.trim()).filter(Boolean),
+      outDir: path.join(ROOT, "eval", "results"), quiet: !values.verbose,
+    });
+    console.log(`\n符合预期 ${summary.passed}/${summary.total}\n汇总：${files!.markdown}\n明细：${files!.json}`);
+    if (summary.passed !== summary.total) process.exitCode = 1;
   } else if (command === "runner") {
     if ((await runRepairDemo()).final_status !== "passed") process.exitCode = 1;
   } else if (command === "rag") {
@@ -134,6 +144,6 @@ async function main() {
       const output = path.join(cache, path.basename(argument));
       await fs.writeFile(output, JSON.stringify(index)); console.log(`已导入 ${index.chunks.length} 个向量：${output}`);
     } else throw new Error("rag 子命令：chunk / embed / search / search-docs / eval-docs / eval-matrix / scale / import");
-  } else throw new Error("命令：agent / eval / runner / rag / swe");
+  } else throw new Error("命令：agent / eval / faults / runner / rag / swe");
 }
 main().catch(e => { console.error(String(e)); process.exitCode = 1; });

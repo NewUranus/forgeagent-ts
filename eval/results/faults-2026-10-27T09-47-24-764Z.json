@@ -1,0 +1,517 @@
+{
+  "started_at": "2026-10-27T09:47:24.764Z",
+  "ended_at": "2026-10-27T09:47:38.334Z",
+  "recording": "/Users/liuxingliang/W5/forgeagent-ts/eval/faults/recordings/pagination-last-page",
+  "passed": 7,
+  "total": 8,
+  "results": [
+    {
+      "scenario": "429-retry-after-seconds",
+      "description": "第 1 轮前 2 次 429 + Retry-After: 2；应等满 2 秒再重试，最终通过",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "completed",
+          "actual": "completed",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "最短重试等待",
+          "expected": "≥ 2000ms",
+          "actual": "2005ms",
+          "ok": true
+        },
+        {
+          "name": "状态",
+          "expected": "passed",
+          "actual": "passed",
+          "ok": true
+        },
+        {
+          "name": "模型轮数",
+          "expected": 6,
+          "actual": 6,
+          "ok": true
+        },
+        {
+          "name": "token 总数（被拒的请求不计费）",
+          "expected": 14241,
+          "actual": 14241,
+          "ok": true
+        },
+        {
+          "name": "改动与录制相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      ],
+      "reason": "completed",
+      "retries": 2,
+      "waits_ms": [
+        2009,
+        2005
+      ],
+      "duration_ms": 4386,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-24-770Z_cc20ef33"
+    },
+    {
+      "scenario": "429-retry-after-date",
+      "description": "第 1 轮 1 次 429，Retry-After 是 3 秒后的 HTTP 日期；应等到那时再重试",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "completed",
+          "actual": "completed",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 1,
+          "actual": 1,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 1,
+          "actual": 1,
+          "ok": true
+        },
+        {
+          "name": "最短重试等待",
+          "expected": "≥ 2000ms",
+          "actual": "2693ms",
+          "ok": true
+        },
+        {
+          "name": "状态",
+          "expected": "passed",
+          "actual": "passed",
+          "ok": true
+        },
+        {
+          "name": "模型轮数",
+          "expected": 6,
+          "actual": 6,
+          "ok": true
+        },
+        {
+          "name": "token 总数（被拒的请求不计费）",
+          "expected": 14241,
+          "actual": 14241,
+          "ok": true
+        },
+        {
+          "name": "改动与录制相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      ],
+      "reason": "completed",
+      "retries": 1,
+      "waits_ms": [
+        2693
+      ],
+      "duration_ms": 3020,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-29-157Z_40047a20"
+    },
+    {
+      "scenario": "429-backoff",
+      "description": "第 1 轮前 2 次 429，没有 Retry-After；应按指数退避（基数 50ms）重试",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "completed",
+          "actual": "completed",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "最长重试等待",
+          "expected": "≤ 1000ms",
+          "actual": "100ms",
+          "ok": true
+        },
+        {
+          "name": "状态",
+          "expected": "passed",
+          "actual": "passed",
+          "ok": true
+        },
+        {
+          "name": "模型轮数",
+          "expected": 6,
+          "actual": 6,
+          "ok": true
+        },
+        {
+          "name": "token 总数（被拒的请求不计费）",
+          "expected": 14241,
+          "actual": 14241,
+          "ok": true
+        },
+        {
+          "name": "改动与录制相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      ],
+      "reason": "completed",
+      "retries": 2,
+      "waits_ms": [
+        55,
+        100
+      ],
+      "duration_ms": 485,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-32-177Z_3ea4d43c"
+    },
+    {
+      "scenario": "429-exhausted",
+      "description": "第 1 轮连续 4 次 429；重试 3 次后以 model_error 结束",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "model_error",
+          "actual": "model_error",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 4,
+          "actual": 4,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        }
+      ],
+      "reason": "model_error",
+      "retries": 3,
+      "waits_ms": [
+        49,
+        97,
+        186
+      ],
+      "duration_ms": 506,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-32-663Z_06311186"
+    },
+    {
+      "scenario": "429-wait-too-long",
+      "description": "Retry-After: 300，超过 2 分钟上限；不等待，直接失败",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "model_error",
+          "actual": "model_error",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 0,
+          "actual": 0,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 1,
+          "actual": 1,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 0,
+          "actual": 0,
+          "ok": true
+        }
+      ],
+      "reason": "model_error",
+      "retries": 0,
+      "waits_ms": [],
+      "duration_ms": 160,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-33-170Z_d3581128"
+    },
+    {
+      "scenario": "429-mid-run",
+      "description": "第 4 轮（已改代码、准备跑测试）2 次 429 + Retry-After: 1；之前的工具结果不丢不重复",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "completed",
+          "actual": "completed",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "第 4 轮请求数",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        },
+        {
+          "name": "第 4 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 4 轮 meta.json 记录的重试",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "最短重试等待",
+          "expected": "≥ 1000ms",
+          "actual": "1003ms",
+          "ok": true
+        },
+        {
+          "name": "状态",
+          "expected": "passed",
+          "actual": "passed",
+          "ok": true
+        },
+        {
+          "name": "模型轮数",
+          "expected": 6,
+          "actual": 6,
+          "ok": true
+        },
+        {
+          "name": "token 总数（被拒的请求不计费）",
+          "expected": 14241,
+          "actual": 14241,
+          "ok": true
+        },
+        {
+          "name": "改动与录制相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      ],
+      "reason": "completed",
+      "retries": 2,
+      "waits_ms": [
+        1003,
+        1003
+      ],
+      "duration_ms": 2315,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-33-330Z_79b53cf4"
+    },
+    {
+      "scenario": "429-stream",
+      "description": "--stream，第 1 轮流开始前 2 次 429 + Retry-After: 1；结果与非流式相同",
+      "passed": true,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "completed",
+          "actual": "completed",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 2,
+          "actual": 2,
+          "ok": true
+        },
+        {
+          "name": "最短重试等待",
+          "expected": "≥ 1000ms",
+          "actual": "1002ms",
+          "ok": true
+        },
+        {
+          "name": "状态",
+          "expected": "passed",
+          "actual": "passed",
+          "ok": true
+        },
+        {
+          "name": "模型轮数",
+          "expected": 6,
+          "actual": 6,
+          "ok": true
+        },
+        {
+          "name": "token 总数（被拒的请求不计费）",
+          "expected": 14241,
+          "actual": 14241,
+          "ok": true
+        },
+        {
+          "name": "改动与录制相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        }
+      ],
+      "reason": "completed",
+      "retries": 2,
+      "waits_ms": [
+        1002,
+        1004
+      ],
+      "duration_ms": 2311,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-35-646Z_15319458"
+    },
+    {
+      "scenario": "429-insufficient-quota",
+      "description": "429 + insufficient_quota（额度耗尽，重试无用）；应不重试，立即失败",
+      "passed": false,
+      "checks": [
+        {
+          "name": "结束原因",
+          "expected": "model_error",
+          "actual": "model_error",
+          "ok": true
+        },
+        {
+          "name": "重试次数",
+          "expected": 0,
+          "actual": 3,
+          "ok": false
+        },
+        {
+          "name": "第 1 轮请求数",
+          "expected": 1,
+          "actual": 4,
+          "ok": false
+        },
+        {
+          "name": "第 1 轮重试请求与首次相同",
+          "expected": true,
+          "actual": true,
+          "ok": true
+        },
+        {
+          "name": "第 1 轮 meta.json 记录的重试",
+          "expected": 3,
+          "actual": 3,
+          "ok": true
+        }
+      ],
+      "reason": "model_error",
+      "retries": 3,
+      "waits_ms": [
+        36,
+        56,
+        153
+      ],
+      "duration_ms": 377,
+      "task_dir": "/Users/liuxingliang/W5/forgeagent-ts/workspace/2026-10-27T09-47-37-957Z_81afc898"
+    }
+  ]
+}

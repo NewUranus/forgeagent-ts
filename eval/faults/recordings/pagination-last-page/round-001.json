@@ -1,0 +1,38 @@
+{
+  "id": "chatcmpl-cd0302d6-c745-9f35-91f1-0f910709c1cc",
+  "object": "chat.completion",
+  "created": 1792991212,
+  "model": "qwen3.6-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "用户反馈分页问题：总共10条记录，每页3条，应该显示4页（10/3=3.33，向上取整为4），但只显示3页，最后一条记录看不到。\n\n让我先读取相关文件来了解问题。",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_1bcba131f45844ea88d3fa0a",
+            "type": "function",
+            "function": {
+              "name": "update_plan",
+              "arguments": "{\"steps\": \n[{\"id\": \"1\", \"description\": \"读取 paginate.ts 和测试文件，定位分页计算问题\", \"status\": \"in_progress\"}, {\"id\": \"2\", \"description\": \"修复 pageCount 函数的计算逻辑\", \"status\": \"pending\"}, {\"id\": \"3\", \"description\": \"运行测试，确保全部通过\", \"status\": \"pending\"}]\n\n}"
+            },
+            "index": 0
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1423,
+    "total_tokens": 1587,
+    "completion_tokens": 164,
+    "completion_tokens_details": {
+      "reasoning_tokens": 56,
+      "text_tokens": 164
+    }
+  }
+}

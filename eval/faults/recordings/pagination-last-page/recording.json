@@ -1,0 +1,8 @@
+{
+  "task": "pagination-last-page",
+  "source_run": "workspace/2026-10-26T05-06-52-736Z_f25b6181",
+  "eval": "eval/results/eval-2026-10-26T04-55-47-118Z-fix-r10-36.json",
+  "model": "qwen3.6-plus",
+  "rounds": 6,
+  "total_tokens": 14241
+}

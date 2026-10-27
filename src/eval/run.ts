@@ -149,10 +149,13 @@ export function summarizeTask(task: EvalTask, attempts: Attempt[]): TaskSummary 
 }
 
 // The agent logs every model reply and the full report; across 30 runs that buries the progress lines.
-async function quietly<T>(fn: () => Promise<T>) {
+export async function quietly<T>(fn: () => Promise<T>) {
   const { log, error, warn } = console;
+  // Streamed model text goes straight to stdout, not through console.
+  const write = process.stdout.write;
   console.log = console.error = console.warn = () => {};
-  try { return await fn(); } finally { Object.assign(console, { log, error, warn }); }
+  process.stdout.write = (() => true) as typeof process.stdout.write;
+  try { return await fn(); } finally { Object.assign(console, { log, error, warn }); process.stdout.write = write; }
 }
 
 async function runAttempt(task: EvalTask, attempt: number, options: EvalOptions): Promise<Attempt> {
