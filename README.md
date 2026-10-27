@@ -174,6 +174,14 @@ npm run swe -- instance_NodeBB__NodeBB-f9ce92df988db7c1ae55d9ef96d247d27478bc70-
 
 所有角色的模型调用共用一个连续的轮次编号，所以日志、统计和回放与 ReAct 一致；默认总轮数为 30（`--max-rounds` 可改）。报告 `statistics.plan_execute` 记录计划版本数、重新规划次数、最终检查次数，以及每步的轮数、验收次数、结果和总结。mock 模式只演示 ReAct，不支持此策略。两种策略孰优孰劣尚无评测数据：小 bug 用 ReAct 可能更省，多文件长任务才可能体现分步的优势。
 
+**子 agent**（`--subagents on`，只用于 ReAct，默认关）：主 agent 多一个 `agent` 工具，参数是类型和任务说明。子 agent 在**全新的对话**里跑同一个工具循环（只带自己的系统提示、任务说明和固定上下文，不带主 agent 的历史），用完只把结论作为工具结果交回，它读过的文件和测试输出不进入主 agent 的上下文。
+
+- **类型**：`explore`（列文件、找文件、读文件、搜索代码和文档，最多 8 轮）和 `verify`（另加 `run_tests`，最多 6 轮）。两者都**只读**，调用白名单以外的工具会得到“子 agent 不能使用 …”的错误；子 agent 没有 `agent` 工具，所以只派发一层。
+- **并行**：同一轮最多 3 个 `agent` 调用，真实 API 模式下同时运行；脚本、mock 和回放模式按顺序运行，保证模型轮次可复现。它们在本轮其他工具调用**之前**执行，所以同一轮的写入不会和子 agent 的读取交错。
+- **结束**：子 agent 不再调用工具时，它的文字就是报告（截断到 4000 字符）；超出轮数以 `round_limit` 结束；有自己的重复检测，检测到一次就以 `loop_detected` 结束；模型出错以 `error` 结束。无论哪种，主 agent 都会拿到一个结果，可以缩小问题后重新派发。
+- **共享与记录**：子 agent 的模型调用占用同一个轮次编号，工具调用写入同一个 `trace.jsonl`（带 `agent` 字段）；`verify` 跑的全量测试和主 agent 自己跑的一样计入验证。报告 `statistics.subagents.runs` 记录每个子 agent 的类型、结果、轮数和工具调用数。
+- **未实现**：会写文件的子 agent（需要 worktree 隔离）、后台运行、agent 之间互发消息。效果尚无评测数据。
+
 ## 模型调用与重复检测
 
 **重试**：429、408、409、425、5xx 和网络错误（含超时）会重试，最多 `MODEL_MAX_RETRIES` 次（默认 3）。等待时间是“full jitter”：在 `min(MODEL_RETRY_MAX_MS, MODEL_RETRY_BASE_MS × 2^n)` 内取随机值（默认基数 1 秒、上限 30 秒），并且不早于服务端 `Retry-After`；服务端要求等待超过 2 分钟时直接失败。400、401、403、404 不重试。每轮的重试次数写入 `model/round-*/meta.json`，汇总在 `statistics.model_requests`；模型摘要请求同样走重试。
@@ -226,6 +234,7 @@ Token 只累计本次真实 API 响应报告的 `usage`，不估算费用。缺�
 | `--docs on\|off` | `on` | 有文档（或 `--docs-index`）时向模型提供 `search_docs`（见“RAG”） |
 | `--edit-tool on\|off` | `on` | 提供 `edit_file`；`off` 时只剩 `write_file` 整份写入，系统提示和 `write_file` 的说明随之改写，模型仍调用 `edit_file` 时按未知工具拒绝 |
 | `--diagnostics on\|off` | `on` | `write_file` / `edit_file` 的结果附带写入后的语法检查 |
+| `--subagents on\|off` | `off` | 只用于 ReAct：提供 `agent` 工具，派发只读子 agent（见“执行策略”） |
 | `--vector-store memory\|qdrant` | `memory` | `--docs-index` 的向量放在哪里检索：内存精确扫描，或本地 Qdrant（见“向量数据库：Qdrant”） |
 
 ```bash

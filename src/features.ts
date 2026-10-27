@@ -18,6 +18,8 @@ export interface AgentFeatures {
   editTool: boolean;
   /** Append a syntax check of the written file to write_file / edit_file results. */
   diagnostics: boolean;
+  /** ReAct only: offer the `agent` tool, which runs read-only sub-agents and returns only their reports. */
+  subagents: boolean;
 }
 
 export const defaultFeatures: AgentFeatures = {
@@ -30,6 +32,8 @@ export const defaultFeatures: AgentFeatures = {
   docs: true,
   editTool: true,
   diagnostics: true,
+  // Off by default: an extra tool changes what the model sees, so baselines stay comparable.
+  subagents: false,
 };
 
 const onOff = (name: string, value: string) => {
@@ -46,7 +50,7 @@ const oneOf = <T extends string>(name: string, value: string, allowed: readonly 
 /** Parse CLI strings; options left undefined keep their defaults. */
 export function parseFeatures(values: {
   context?: string; truncate?: string; summary?: string; "repo-map"?: string; "project-notes"?: string; "loop-guard"?: string; docs?: string;
-  "edit-tool"?: string; diagnostics?: string;
+  "edit-tool"?: string; diagnostics?: string; subagents?: string;
 }): Partial<AgentFeatures> {
   const features: Partial<AgentFeatures> = {};
   if (values.context !== undefined) features.context = oneOf("context", values.context, ["window", "none"] as const);
@@ -58,5 +62,6 @@ export function parseFeatures(values: {
   if (values.docs !== undefined) features.docs = onOff("docs", values.docs);
   if (values["edit-tool"] !== undefined) features.editTool = onOff("edit-tool", values["edit-tool"]);
   if (values.diagnostics !== undefined) features.diagnostics = onOff("diagnostics", values.diagnostics);
+  if (values.subagents !== undefined) features.subagents = onOff("subagents", values.subagents);
   return features;
 }
