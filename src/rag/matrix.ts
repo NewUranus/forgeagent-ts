@@ -138,7 +138,7 @@ function evaluate(variant: Variant, method: Method): CaseResult[] {
 }
 
 async function readmeCorpus(text: string, maxChars: number, withTitle: boolean): Promise<Corpus> {
-  const chunks = chunkDocument("README.md", text, maxChars);
+  const chunks = chunkDocument("docs/GUIDE.md", text, maxChars);
   const texts = chunks.map((chunk) => (withTitle ? `${chunk.title}\n${chunk.text}` : chunk.text));
   return { name: `README（${maxChars} 字符${withTitle ? "" : "，不含标题"}）`, chunks, texts, vectors: await embedCached(texts) };
 }
@@ -219,7 +219,7 @@ async function backendRankings(variant: Variant) {
 }
 
 export async function runMatrix(options: { readmeCases: string; pdfCases: string; pdfIndex: string; out: string; qdrant?: boolean }) {
-  const readme = await fs.readFile(path.join(ROOT, "README.md"), "utf8");
+  const readme = await fs.readFile(path.join(ROOT, "docs", "GUIDE.md"), "utf8");
   const readmeCases: Case[] = JSON.parse(await fs.readFile(options.readmeCases, "utf8"));
   const pdfCases: Case[] = JSON.parse(await fs.readFile(options.pdfCases, "utf8"));
   const leaked = readmeCases.filter((item) => readme.includes(item.query)).map((item) => item.query);
