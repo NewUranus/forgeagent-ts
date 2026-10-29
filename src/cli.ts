@@ -52,7 +52,7 @@ function parseTestConfig(values: { "test-command"?: string; "test-timeout"?: str
   return config;
 }
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "edit-tool": { type: "string" }, diagnostics: { type: "string" }, subagents: { type: "string" }, "docs-index": { type: "string" }, "vector-store": { type: "string" }, qdrant: { type: "boolean" }, sizes: { type: "string" }, quantization: { type: "boolean" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, scenarios: { type: "string" }, verbose: { type: "boolean" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "edit-tool": { type: "string" }, diagnostics: { type: "string" }, subagents: { type: "string" }, "docs-index": { type: "string" }, "vector-store": { type: "string" }, qdrant: { type: "boolean" }, sizes: { type: "string" }, quantization: { type: "boolean" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, scenarios: { type: "string" }, verbose: { type: "boolean" }, name: { type: "string" } } });
   const [command, action, argument] = positionals;
   if (command === "agent") {
     const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values),
@@ -98,6 +98,15 @@ async function main() {
       const pages = await loadPdf(argument), chunks = chunkPages(pages);
       const output = path.join(cache, path.parse(argument).name + ".chunks.json");
       await fs.writeFile(output, JSON.stringify(chunks, null, 2)); console.log({ pages: pages.length, chunks: chunks.length, output });
+    } else if (action === "chunk-mineru") {
+      if (!argument) throw new Error("用法：npm run rag -- chunk-mineru <structured_content.json> [--name thinkpython2]");
+      const { loadMineru } = await import("./rag/mineru-loader.js");
+      // Output <name>.mineru.chunks.json, so `embed` writes <name>.mineru.index.json next to the PDF.js index.
+      const name = values.name ?? path.basename(argument).replace(/\.json$/, "");
+      const chunks = await loadMineru(argument, `${name}.pdf`);
+      const output = path.join(cache, `${name}.mineru.chunks.json`);
+      await fs.writeFile(output, JSON.stringify(chunks, null, 2));
+      console.log({ chunks: chunks.length, average_chars: Math.round(chunks.reduce((sum, c) => sum + c.content.length, 0) / (chunks.length || 1)), output });
     } else if (action === "embed") {
       if (!argument) throw new Error("用法：npm run rag -- embed <chunks.json>");
       const chunks: Chunk[] = JSON.parse(await fs.readFile(argument, "utf8"));
@@ -143,7 +152,7 @@ async function main() {
       const index = await loadIndex(argument);
       const output = path.join(cache, path.basename(argument));
       await fs.writeFile(output, JSON.stringify(index)); console.log(`已导入 ${index.chunks.length} 个向量：${output}`);
-    } else throw new Error("rag 子命令：chunk / embed / search / search-docs / eval-docs / eval-matrix / scale / import");
+    } else throw new Error("rag 子命令：chunk / chunk-mineru / embed / search / search-docs / eval-docs / eval-matrix / scale / import");
   } else throw new Error("命令：agent / eval / faults / runner / rag / swe");
 }
 main().catch(e => { console.error(String(e)); process.exitCode = 1; });

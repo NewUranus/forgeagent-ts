@@ -320,7 +320,38 @@ npm run rag -- search "What is infinite recursion?" --top-k 3 --min-chars 100
 
 可指定 `--index /path/to/index.json`。兼容 Python 原索引的 `demension` 拼写，并将旧版空模型名视为此项目已使用的 `Qwen3-Embedding-0.6B`；导入其他来源时必须确认真实模型。更换模型要重新生成索引，不可仅比较维度。
 
-PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本书分片数量可能不同。本机验证：244 页、649 个新片段；原索引仍是 624 个自带原文的向量。新生成的 chunks 不会覆盖旧 index，只有 `embed` 会生成/覆盖索引。扫描 PDF 的 OCR 尚未实现。
+PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本书分片数量可能不同。本机验证：244 页、649 个新片段；原索引仍是 624 个自带原文的向量。新生成的 chunks 不会覆盖旧 index，只有 `embed` 会生成/覆盖索引。PDF.js 路径没有 OCR，扫描 PDF 要走下面的 MinerU。
+
+### MinerU 解析（可选）
+
+[MinerU](https://github.com/opendatalab/MinerU) 做版面分析，识别标题、代码、表格、公式，去掉页眉页码，扫描页走 OCR。它是独立的 Python 工具，装在被忽略的 `.mineru/` 里，不进 `package.json`；项目只读它的输出。
+
+```bash
+uv venv .mineru/venv --python 3.12 && VIRTUAL_ENV=.mineru/venv uv pip install mineru   # 4.0.12，含 PyTorch
+.mineru/venv/bin/mineru-models-download --tier basic                                    # 本地模型约 5.6 GB（Hugging Face 缓存）
+.mineru/venv/bin/mineru-kit parse ../ForgeAgent/rag/thinkpython2.pdf --pages all --tier basic --format zip -o .mineru/out/thinkpython2/out.zip
+unzip .mineru/out/thinkpython2/out.zip -d .mineru/out/thinkpython2
+
+npm run rag -- chunk-mineru .mineru/out/thinkpython2/structured_content.json --name thinkpython2   # → .rag_cache/thinkpython2.mineru.chunks.json
+npm run rag -- embed .rag_cache/thinkpython2.mineru.chunks.json                                   # → thinkpython2.mineru.index.json
+npm run rag -- eval-docs eval/retrieval/thinkpython.json --source <空目录> --docs-index .rag_cache/thinkpython2.mineru.index.json
+```
+
+- **本地解析**：不加 `--remote` 时在本机解析，不上传文档；`mineru telemetry disable` 关闭匿名统计。244 页在 Apple Silicon CPU 上约 7 分钟。
+- **切分**（`src/rag/mineru-loader.ts`）：读 4.x 的 `structured_content.json`。标题开新片段，同一节内的块打包到 1000 字符以内，每个片段以标题路径开头（BM25 和向量都能用上）；跨页的片段记起始页，页码与 PDF.js 一致（从 1 开始）。页码、页眉丢弃；与页码或页眉同一行的块也丢弃，因为 Think Python 奇数页的页眉会被识别成小节标题，把上一节的续文标成下一节。
+- **已知问题**：代码块丢失缩进，代码语言常识别错（Python 标成 `coffeescript`、`erl`）；行内代码偶尔被当成公式（`n <= 0` 变成 `\texttt` 公式）。
+
+**对比结果**（2026-10-29，同一套 32 个问题、同一个 Qwen3-Embedding-0.6B，top-5，`--source` 为空目录只检索索引；明细见 `eval/results/retrieval-mineru-2026-10-29.json`）：
+
+| 解析 | 片段数 | 平均字符 | BM25 recall@5 | BM25 MRR | 混合 recall@5 | 混合 MRR |
+|---|---|---|---|---|---|---|
+| pypdf（原 Python 项目索引，1000/200 固定切分） | 624 | 829 | 84.4% | 0.753 | 96.9% | 0.841 |
+| PDF.js（1000/200 固定切分） | 649 | 834 | 93.8% | 0.827 | 96.9% | 0.873 |
+| MinerU（按标题切分） | 596 | 759 | 90.6% | 0.756 | 96.9% | 0.878 |
+
+- 混合检索三者都是 31/32，MRR 差距在 0.04 以内；32 个问题下这点差距说明不了谁更好。
+- 只用 BM25 时 MinerU 比 PDF.js 少命中 1 题，排名也更靠后。看过的一个未命中：正确小节在 MinerU 里是完整的一块，但排第一的是从下一页开始的相邻小节，按页标注就算错。
+- 结论：Think Python 是排版简单的文字版 PDF，PDF.js 抽出的文字已经干净，换 MinerU 在这本书上没有可测出的收益。它的价值要在扫描件、双栏、表格多的文档上验证，这需要另一份 PDF 和新的标注。
 
 ### 本地 Qwen 权重复用
 
