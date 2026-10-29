@@ -1,6 +1,8 @@
 import { parseArgs } from "node:util";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { createInterface } from "node:readline";
+import { ChatSession, isFenceOpen, renderFindings, type Attachment, type ChatOptions, type Finding } from "./chat.js";
 import { ROOT } from "./config.js";
 import { runAgent } from "./agent.js";
 import { parseFeatures } from "./features.js";
@@ -51,10 +53,108 @@ function parseTestConfig(values: { "test-command"?: string; "test-timeout"?: str
   }
   return config;
 }
+async function runChat(options: ChatOptions, input: { ask?: string; file?: string[]; json?: boolean }) {
+  const attachments: Attachment[] = [];
+  const attach = async (file: string) => {
+    const content = await fs.readFile(file);
+    if (content.includes(0)) throw new Error(`二进制文件，无法读取：${file}`);
+    attachments.push({ name: path.basename(file), content: content.toString("utf8") });
+  };
+  for (const file of input.file ?? []) await attach(file);
+  const single = input.ask !== undefined || !!input.file?.length || !process.stdin.isTTY;
+  if (input.json && !single) throw new Error("--json 需要 --ask、--file 或 stdin 输入");
+  const stream = !!options.stream && !input.json;
+  const chat = await ChatSession.create({ ...options, quiet: true, stream });
+  let findings: Finding[] = [];
+  const ask = async (text: string) => {
+    const turn = await chat.ask(text, attachments);
+    attachments.length = 0;
+    findings = turn.findings;
+    if (input.json) console.log(JSON.stringify(turn));
+    else {
+      if (stream) console.log();
+      if (!stream && findings.length) console.log(renderFindings(findings));
+      if (!stream || turn.status !== "answered") console.log(turn.answer);
+    }
+  };
+  if (single) {
+    if (!process.stdin.isTTY) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+      const content = Buffer.concat(chunks);
+      if (content.includes(0)) throw new Error("stdin 是二进制内容，无法读取");
+      if (content.length) attachments.push({ name: "stdin.txt", content: content.toString("utf8") });
+    }
+    if (input.ask === undefined && !attachments.length) throw new Error("请提供问题或代码附件");
+    await ask(input.ask ?? "这段代码有 bug 吗？找出问题并说明。");
+    return;
+  }
+  console.log("对话式代码审查：输入问题，或用 /paste、/file、/findings、/reset、/exit。");
+  const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  let pending: string[] = [], paste = false, closed = false;
+  rl.on("close", () => { closed = true; });
+  const prompt = () => {
+    if (closed) return;
+    rl.setPrompt(paste ? "paste> " : pending.length ? "... " : "> "); rl.prompt();
+  };
+  try {
+    prompt();
+    for await (const line of rl) {
+      try {
+        if (paste) {
+          if (line !== "/end") { pending.push(line); prompt(); continue; }
+          paste = false;
+        } else if (pending.length) {
+          pending.push(line);
+          if (isFenceOpen(pending.join("\n"))) { prompt(); continue; }
+        } else {
+          const command = line.trim();
+          if (command === "/exit") break;
+          if (command === "/paste") { paste = true; prompt(); continue; }
+          if (command === "/findings") { console.log(renderFindings(findings)); prompt(); continue; }
+          if (command === "/reset") {
+            chat.reset(); findings = []; attachments.length = 0;
+            console.log("已清空对话历史。"); prompt(); continue;
+          }
+          if (/^\/file(?:\s|$)/.test(command)) {
+            const file = command.slice(5).trim();
+            if (!file) throw new Error("用法：/file <路径>");
+            await attach(file); console.log(`已附加 ${file}，随下一个问题发送。`); prompt(); continue;
+          }
+          if (command.startsWith("/")) throw new Error(`未知命令：${command}`);
+          if (!command) { prompt(); continue; }
+          pending.push(line);
+          if (isFenceOpen(line)) { prompt(); continue; }
+        }
+        const question = pending.join("\n");
+        pending = [];
+        if (question.trim() || attachments.length) await ask(question);
+      } catch (error) { console.error(String(error)); }
+      prompt();
+    }
+    if (pending.length || paste) console.error("输入未结束，本条消息未发送。");
+  } finally { rl.close(); }
+}
+
 async function main() {
-  const { values, positionals } = parseArgs({ allowPositionals: true, options: { replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "edit-tool": { type: "string" }, diagnostics: { type: "string" }, subagents: { type: "string" }, "docs-index": { type: "string" }, "vector-store": { type: "string" }, qdrant: { type: "boolean" }, sizes: { type: "string" }, quantization: { type: "boolean" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, scenarios: { type: "string" }, verbose: { type: "boolean" }, name: { type: "string" } } });
+  const { values, positionals } = parseArgs({ allowPositionals: true, options: { ask: { type: "string" }, file: { type: "string", multiple: true }, json: { type: "boolean" }, replay: { type: "string" }, source: { type: "string" }, task: { type: "string" }, mock: { type: "boolean" }, apply: { type: "boolean" }, mcp: { type: "boolean" }, "max-rounds": { type: "string" }, context: { type: "string" }, truncate: { type: "string" }, summary: { type: "string" }, "repo-map": { type: "string" }, "project-notes": { type: "string" }, workspace: { type: "string" }, "setup-command": { type: "string" }, "test-command": { type: "string" }, "test-timeout": { type: "string" }, sandbox: { type: "string" }, image: { type: "string" }, "sandbox-network": { type: "string" }, preserve: { type: "string", multiple: true }, "pro-dir": { type: "string" }, stream: { type: "boolean" }, "loop-guard": { type: "string" }, docs: { type: "string" }, "edit-tool": { type: "string" }, diagnostics: { type: "string" }, subagents: { type: "string" }, "docs-index": { type: "string" }, "vector-store": { type: "string" }, qdrant: { type: "boolean" }, sizes: { type: "string" }, quantization: { type: "boolean" }, strategy: { type: "string" }, "step-rounds": { type: "string" }, "max-replans": { type: "string" }, index: { type: "string" }, "top-k": { type: "string" }, "min-chars": { type: "string" }, repeat: { type: "string" }, tasks: { type: "string" }, "tasks-dir": { type: "string" }, label: { type: "string" }, scenarios: { type: "string" }, verbose: { type: "boolean" }, name: { type: "string" } } });
   const [command, action, argument] = positionals;
-  if (command === "agent") {
+  if (command === "chat") {
+    await runChat({ source: values.source ? path.resolve(values.source) : undefined, stream: values.stream,
+      maxToolRounds: values["max-rounds"] === undefined ? undefined : Number(values["max-rounds"]),
+      features: parseFeatures(values), testConfig: parseTestConfig(values), docs: parseDocs(values),
+    }, { ask: values.ask, file: values.file, json: values.json });
+  } else if (command === "review-eval") {
+    const { runReviewEval } = await import("./eval/review.js");
+    const { result, files } = await runReviewEval({
+      tasksDir: path.resolve(values["tasks-dir"] ?? path.join(ROOT, "eval", "tasks")),
+      outDir: path.join(ROOT, "eval", "results"), only: values.tasks?.split(",").map((name) => name.trim()).filter(Boolean),
+      repeat: values.repeat === undefined ? undefined : Number(values.repeat), label: values.label, quiet: !values.verbose,
+      chat: { maxToolRounds: values["max-rounds"] === undefined ? undefined : Number(values["max-rounds"]) },
+    });
+    console.log(`\n命中 ${result.totals.hits}/${result.totals.attempts}，命中率 ${(result.totals.hit_rate * 100).toFixed(1)}%\n汇总：${files.markdown}\n明细：${files.json}`);
+    if (result.stopped_early) process.exitCode = 1;
+  } else if (command === "agent") {
     const report = await runAgent({ replay: values.replay, source: values.source ? path.resolve(values.source) : undefined, task: values.task, mock: values.mock, apply: values.apply, mcp: values.mcp, maxRounds: values["max-rounds"] ? Number(values["max-rounds"]) : undefined, features: parseFeatures(values),
       workspace: parseWorkspace(values.workspace), setupCommand: values["setup-command"], testConfig: parseTestConfig(values), stream: values.stream, docs: parseDocs(values),
       strategy: parseStrategy(values.strategy), planLimits: parsePlanLimits(values) });
@@ -153,6 +253,6 @@ async function main() {
       const output = path.join(cache, path.basename(argument));
       await fs.writeFile(output, JSON.stringify(index)); console.log(`已导入 ${index.chunks.length} 个向量：${output}`);
     } else throw new Error("rag 子命令：chunk / chunk-mineru / embed / search / search-docs / eval-docs / eval-matrix / scale / import");
-  } else throw new Error("命令：agent / eval / faults / runner / rag / swe");
+  } else throw new Error("命令：agent / chat / review-eval / eval / faults / runner / rag / swe");
 }
 main().catch(e => { console.error(String(e)); process.exitCode = 1; });

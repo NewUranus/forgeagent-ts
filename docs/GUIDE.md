@@ -328,7 +328,7 @@ PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本�
 
 ```bash
 uv venv .mineru/venv --python 3.12 && VIRTUAL_ENV=.mineru/venv uv pip install mineru   # 4.0.12，含 PyTorch
-.mineru/venv/bin/mineru-models-download --tier basic                                    # 本地模型约 5.6 GB（Hugging Face 缓存）
+.mineru/venv/bin/mineru-models-download --tier basic                                    # 本地模型约 0.85 GB，放在 ~/.mineru/models
 .mineru/venv/bin/mineru-kit parse ../ForgeAgent/rag/thinkpython2.pdf --pages all --tier basic --format zip -o .mineru/out/thinkpython2/out.zip
 unzip .mineru/out/thinkpython2/out.zip -d .mineru/out/thinkpython2
 
@@ -352,6 +352,14 @@ npm run rag -- eval-docs eval/retrieval/thinkpython.json --source <空目录> --
 - 混合检索三者都是 31/32，MRR 差距在 0.04 以内；32 个问题下这点差距说明不了谁更好。
 - 只用 BM25 时 MinerU 比 PDF.js 少命中 1 题，排名也更靠后。看过的一个未命中：正确小节在 MinerU 里是完整的一块，但排第一的是从下一页开始的相邻小节，按页标注就算错。
 - 结论：Think Python 是排版简单的文字版 PDF，PDF.js 抽出的文字已经干净，换 MinerU 在这本书上没有可测出的收益。它的价值要在扫描件、双栏、表格多的文档上验证，这需要另一份 PDF 和新的标注。
+
+**扫描版**：`scripts/scan-pdf.py` 把每页渲染成 200 DPI 灰度图，加纸张底色、±0.8° 倾斜、噪点、轻微模糊和 JPEG 压缩，写回成没有文字层的 PDF。页数和页面尺寸不变，按页码标注的问题可以直接复用；效果按页固定随机种子，结果可复现。
+
+```bash
+.mineru/venv/bin/python scripts/scan-pdf.py ../ForgeAgent/rag/thinkpython2.pdf .rag_cache/thinkpython2-scan.pdf   # 244 页约 40 秒，113 MB
+```
+
+PDF.js 在这份文件上抽出 0 个字符（原版 46 万）。
 
 ### 本地 Qwen 权重复用
 
@@ -442,3 +450,25 @@ npm run rag -- scale --sizes 10000,100000,300000 --quantization  # 规模实验
 - `error.json`：请求抛出异常时保存；没有响应时不会伪造 response.json。
 
 终端显示对应路径。请求完成后立即保存响应，不等任务结束；强制退出时，已完成轮次仍可查看，正在等待的一轮通常只有 request.json 和 pending 状态。日志不包含认证请求头，但包含发送给模型的代码和任务文本。旧任务的历史请求无法追溯补录。
+
+## 对话式代码审查
+
+`chat` 用只读工具查证代码问题，给出带文件、行号、引用原文的列表，并支持继续追问。模型提交的每条问题都经过文件与行号核验：引用不在所引范围时会拒绝整组问题，并提示引用实际位置，让模型修正。核验保证引用可查，不保证模型对 bug 的判断正确；需要自动修复时仍使用 `agent`。
+
+```bash
+npm run chat                                          # 交互式，粘贴代码后提问
+npm run chat -- --source /path/to/project              # 复制项目后审查，可运行项目测试
+npm run chat -- --ask "有什么问题？" --file src/paginate.ts
+cat paginate.ts | npm run chat -- --ask "有什么问题？"  # stdin 作为附件
+npm run --silent chat -- --ask "有什么问题？" --file a.ts --json
+npm run chat -- --stream                              # 流式显示回答
+npm run review-eval -- --tasks pagination-last-page --repeat 2 --label review
+```
+
+交互时，行首的三个反引号打开代码块，未闭合就继续读行；也可以输入 `/paste` 后粘贴多行，以单独一行 `/end` 发送。`/file <路径>` 把本机文件附到下一个问题，可以重复附加多个文件；`/findings` 重印上一轮问题；`/reset` 清空对话历史，保留项目说明与仓库概览；`/exit` 或 Ctrl+D 退出。模型请求出错后会显示错误，仍可继续提问。
+
+单次模式支持重复 `--file`，未写 `--ask` 时使用默认审查问题。`--json` 只向 stdout 输出一个 ChatTurn JSON，并关闭流式输出；通过 npm 调用时加 `--silent` 去掉 npm 自身的脚本提示。`--max-rounds` 限制每个问题的模型调用次数（默认 8），连续重复工具调用会提前停止。带项目时可用 `--repo-map off`、`--project-notes off`、`--docs off` 关闭对应固定上下文或文档检索；测试配置沿用 `--test-command`、`--test-timeout` 和 Docker 参数。
+
+所有操作都针对 `workspace/` 中的独立副本，不回写源项目。代码块按语言保存到 `snippets/snippet-N.ext`，附件保存到 `attachments/`，重名自动编号；超过 300 行的文件让模型分段读取。工具只提供文件查找、阅读、搜索、语法检查和问题报告；带项目才提供测试执行，有文档时才提供文档检索。模型请求保存在 `model/round-NNN/`，每轮问答与已核验的问题追加到 `chat.jsonl`；重置历史不删除记录或代码文件。
+
+`review-eval` 每个任务默认跑 1 次，仅把 `eval/tasks/` 中参考修复涉及的含 bug 文件作为附件，不给模型测试或任务说明。问题区间距离参考改动行不超过 1 行算命中，报告同时统计未命中 bug 的问题数（可能是误报，也可能是次要问题）、token 和耗时。结果保存为 `eval/results/review-<时间戳>[-标签].json` 和 `.md`；账号或额度错误会提前停止。这个命中率衡量位置覆盖，不验证每条问题的语义。
