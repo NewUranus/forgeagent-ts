@@ -39,6 +39,7 @@ npm run agent -- --replay mock-data/2026-10-17T08-20-57-131Z_619f7ef9
 cp .env.example .env    # 填写 QWEN_API_KEY、QWEN_BASE_URL、QWEN_MODEL
 npm run agent -- --task "检查 average 对 null 和空数组的处理，修复问题并运行测试"
 npm run agent -- --source /absolute/path/to/project --sandbox docker --image node:24
+npm run chat -- --ask "这段代码有什么问题？" --file src/tools.ts  # 只读审查，可交互追问
 npm run eval            # 10 个任务 × 3 次
 npm test
 ```
@@ -62,6 +63,7 @@ flowchart LR
 | 模块 | 文件 |
 |---|---|
 | Agent 循环、结束检查、回写 | `src/agent.ts` |
+| 对话式代码审查、引用核验与评测 | `src/chat.ts`、`src/eval/review.ts` |
 | 工具定义与执行、测试运行器 | `src/tools.ts` |
 | 工作副本、测试保护 | `src/workspace.ts`、`src/guard.ts` |
 | 模型请求：重试、流式（SSE） | `src/model/` |

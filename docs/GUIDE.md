@@ -270,9 +270,22 @@ npm run eval -- --mock --repeat 1                          # 不调用 API，只
 
 每个任务是一个目录：`instruction.md`（给 Agent 的任务，写法类似 issue）、`project/`（注入了 bug 的小项目和测试）、`task.json`（bug 类型，可选 `test_command`）、`solution/`（参考修复，只用于测试检查任务本身，不会复制给 Agent）。现有 10 个 TypeScript 任务，覆盖 off-by-one、边界条件、空值、异步、跨文件调用、类型转换、副作用、字符串处理、数据结构和错误处理；`test/eval.test.ts` 保证每个任务修复前测试失败、套用参考修复后通过。
 
-**通过判定**比 Agent 的自我报告更严格：Agent 以 `passed` 结束、评测脚本在最终工作副本上**独立重跑**全量测试通过，且没有修改测试文件，三者同时满足才算通过。单次运行出错（模型故障、准备命令失败等）只记为未通过，不会中断评测。
+**通过判定**比 Agent 的自我报告更严格：Agent 以 `passed` 结束、评测脚本在最终工作副本上**独立重跑**全量测试通过，且没有修改测试文件，三者同时满足才算通过。单次运行出错（模型故障、准备命令失败等）只记为未通过，不会中断评测；例外是账户或配置错误（401、403、404 或额度耗尽），后面的运行会以同样的方式失败，所以评测在这次运行后停止，结果里的 `stopped_early` 记录停在第几次、跳过了几次，pass@1 和 pass@k 只统计已经运行的部分。
 
 结果写到 `eval/results/eval-<时间戳>[-标签].md` 和 `.json`：每个任务的通过次数、平均轮数、工具调用数、token（含模型摘要调用；平均数和中位数，输入、输出分开）、平均裁剪轮数（`rounds_with_dropping`，为 0 说明上下文管理没起作用）、耗时和未通过原因，以及 pass@1 和 pass@N（无偏估计）。`config.context` 记录本次使用的 `CONTEXT_WINDOW_TOKENS` 和 `CONTEXT_OUTPUT_RESERVE_TOKENS`。JSON 里的 `task_dir` 指向每次运行的完整记录。任务按顺序执行，目前不支持并发。
+
+### 故障注入
+
+`npm run faults` 检查错误处理在真实运行路径上是否按设计工作，不调用模型、不花 token。`eval/faults/recordings/pagination-last-page/` 保存了一次真实通过的运行（6 轮的原始 API 响应和最终改动）；本地代理冒充模型服务按顺序返回这些响应，并在指定的轮次和第几次请求注入 HTTP 错误。被注入故障的请求不消耗录制，所以重试成功后模型拿到的还是同一轮的回答，正常结果就是“和录制一模一样”。Agent 走真实 API 模式（使用独立的 `FAULTPROXY_*` 设置，不读取 `.env` 里的密钥）。
+
+```bash
+npm run faults                                              # 全部场景
+npm run faults -- --scenarios 429-backoff,429-stream        # 只跑部分场景
+```
+
+目前是 8 个 429 场景：Retry-After 秒数和 HTTP 日期、无 Retry-After 的退避、重试耗尽、Retry-After 超过 2 分钟、运行中途限流、流式模式、额度耗尽（`insufficient_quota`）。每个场景检查结束原因、重试次数、每轮请求数和 `meta.json` 里的重试记录、重试前等待时间、重试请求是否与首次完全相同；应当恢复的场景还要求状态、轮数、token 数和改动都与录制相同。结果写到 `eval/results/faults-<时间戳>.md` 和 `.json`。
+
+额度耗尽按响应内容识别（`insufficient_quota`、`exceeded your current quota`、`quota exhausted`、余额不足等），无论状态码是 429 还是 403 都不重试。最近一次结果 8/8 符合预期（`eval/results/faults-2026-10-27T09-55-03-820Z.md`）。
 
 ## 代码对应
 
@@ -307,7 +320,46 @@ npm run rag -- search "What is infinite recursion?" --top-k 3 --min-chars 100
 
 可指定 `--index /path/to/index.json`。兼容 Python 原索引的 `demension` 拼写，并将旧版空模型名视为此项目已使用的 `Qwen3-Embedding-0.6B`；导入其他来源时必须确认真实模型。更换模型要重新生成索引，不可仅比较维度。
 
-PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本书分片数量可能不同。本机验证：244 页、649 个新片段；原索引仍是 624 个自带原文的向量。新生成的 chunks 不会覆盖旧 index，只有 `embed` 会生成/覆盖索引。扫描 PDF 的 OCR 尚未实现。
+PDF 使用 PDF.js，提取布局和空白与 pypdf 有差异，所以同一本书分片数量可能不同。本机验证：244 页、649 个新片段；原索引仍是 624 个自带原文的向量。新生成的 chunks 不会覆盖旧 index，只有 `embed` 会生成/覆盖索引。PDF.js 路径没有 OCR，扫描 PDF 要走下面的 MinerU。
+
+### MinerU 解析（可选）
+
+[MinerU](https://github.com/opendatalab/MinerU) 做版面分析，识别标题、代码、表格、公式，去掉页眉页码，扫描页走 OCR。它是独立的 Python 工具，装在被忽略的 `.mineru/` 里，不进 `package.json`；项目只读它的输出。
+
+```bash
+uv venv .mineru/venv --python 3.12 && VIRTUAL_ENV=.mineru/venv uv pip install mineru   # 4.0.12，含 PyTorch
+.mineru/venv/bin/mineru-models-download --tier basic                                    # 本地模型约 0.85 GB，放在 ~/.mineru/models
+.mineru/venv/bin/mineru-kit parse ../ForgeAgent/rag/thinkpython2.pdf --pages all --tier basic --format zip -o .mineru/out/thinkpython2/out.zip
+unzip .mineru/out/thinkpython2/out.zip -d .mineru/out/thinkpython2
+
+npm run rag -- chunk-mineru .mineru/out/thinkpython2/structured_content.json --name thinkpython2   # → .rag_cache/thinkpython2.mineru.chunks.json
+npm run rag -- embed .rag_cache/thinkpython2.mineru.chunks.json                                   # → thinkpython2.mineru.index.json
+npm run rag -- eval-docs eval/retrieval/thinkpython.json --source <空目录> --docs-index .rag_cache/thinkpython2.mineru.index.json
+```
+
+- **本地解析**：不加 `--remote` 时在本机解析，不上传文档；`mineru telemetry disable` 关闭匿名统计。244 页在 Apple Silicon CPU 上约 7 分钟。
+- **切分**（`src/rag/mineru-loader.ts`）：读 4.x 的 `structured_content.json`。标题开新片段，同一节内的块打包到 1000 字符以内，每个片段以标题路径开头（BM25 和向量都能用上）；跨页的片段记起始页，页码与 PDF.js 一致（从 1 开始）。页码、页眉丢弃；与页码或页眉同一行的块也丢弃，因为 Think Python 奇数页的页眉会被识别成小节标题，把上一节的续文标成下一节。
+- **已知问题**：代码块丢失缩进，代码语言常识别错（Python 标成 `coffeescript`、`erl`）；行内代码偶尔被当成公式（`n <= 0` 变成 `\texttt` 公式）。
+
+**对比结果**（2026-10-29，同一套 32 个问题、同一个 Qwen3-Embedding-0.6B，top-5，`--source` 为空目录只检索索引；明细见 `eval/results/retrieval-mineru-2026-10-29.json`）：
+
+| 解析 | 片段数 | 平均字符 | BM25 recall@5 | BM25 MRR | 混合 recall@5 | 混合 MRR |
+|---|---|---|---|---|---|---|
+| pypdf（原 Python 项目索引，1000/200 固定切分） | 624 | 829 | 84.4% | 0.753 | 96.9% | 0.841 |
+| PDF.js（1000/200 固定切分） | 649 | 834 | 93.8% | 0.827 | 96.9% | 0.873 |
+| MinerU（按标题切分） | 596 | 759 | 90.6% | 0.756 | 96.9% | 0.878 |
+
+- 混合检索三者都是 31/32，MRR 差距在 0.04 以内；32 个问题下这点差距说明不了谁更好。
+- 只用 BM25 时 MinerU 比 PDF.js 少命中 1 题，排名也更靠后。看过的一个未命中：正确小节在 MinerU 里是完整的一块，但排第一的是从下一页开始的相邻小节，按页标注就算错。
+- 结论：Think Python 是排版简单的文字版 PDF，PDF.js 抽出的文字已经干净，换 MinerU 在这本书上没有可测出的收益。它的价值要在扫描件、双栏、表格多的文档上验证，这需要另一份 PDF 和新的标注。
+
+**扫描版**：`scripts/scan-pdf.py` 把每页渲染成 200 DPI 灰度图，加纸张底色、±0.8° 倾斜、噪点、轻微模糊和 JPEG 压缩，写回成没有文字层的 PDF。页数和页面尺寸不变，按页码标注的问题可以直接复用；效果按页固定随机种子，结果可复现。
+
+```bash
+.mineru/venv/bin/python scripts/scan-pdf.py ../ForgeAgent/rag/thinkpython2.pdf .rag_cache/thinkpython2-scan.pdf   # 244 页约 40 秒，113 MB
+```
+
+PDF.js 在这份文件上抽出 0 个字符（原版 46 万）。
 
 ### 本地 Qwen 权重复用
 
@@ -398,3 +450,25 @@ npm run rag -- scale --sizes 10000,100000,300000 --quantization  # 规模实验
 - `error.json`：请求抛出异常时保存；没有响应时不会伪造 response.json。
 
 终端显示对应路径。请求完成后立即保存响应，不等任务结束；强制退出时，已完成轮次仍可查看，正在等待的一轮通常只有 request.json 和 pending 状态。日志不包含认证请求头，但包含发送给模型的代码和任务文本。旧任务的历史请求无法追溯补录。
+
+## 对话式代码审查
+
+`chat` 用只读工具查证代码问题，给出带文件、行号、引用原文的列表，并支持继续追问。模型提交的每条问题都经过文件与行号核验：引用不在所引范围时会拒绝整组问题，并提示引用实际位置，让模型修正。核验保证引用可查，不保证模型对 bug 的判断正确；需要自动修复时仍使用 `agent`。
+
+```bash
+npm run chat                                          # 交互式，粘贴代码后提问
+npm run chat -- --source /path/to/project              # 复制项目后审查，可运行项目测试
+npm run chat -- --ask "有什么问题？" --file src/paginate.ts
+cat paginate.ts | npm run chat -- --ask "有什么问题？"  # stdin 作为附件
+npm run --silent chat -- --ask "有什么问题？" --file a.ts --json
+npm run chat -- --stream                              # 流式显示回答
+npm run review-eval -- --tasks pagination-last-page --repeat 2 --label review
+```
+
+交互时，行首的三个反引号打开代码块，未闭合就继续读行；也可以输入 `/paste` 后粘贴多行，以单独一行 `/end` 发送。`/file <路径>` 把本机文件附到下一个问题，可以重复附加多个文件；`/findings` 重印上一轮问题；`/reset` 清空对话历史，保留项目说明与仓库概览；`/exit` 或 Ctrl+D 退出。模型请求出错后会显示错误，仍可继续提问。
+
+单次模式支持重复 `--file`，未写 `--ask` 时使用默认审查问题。`--json` 只向 stdout 输出一个 ChatTurn JSON，并关闭流式输出；通过 npm 调用时加 `--silent` 去掉 npm 自身的脚本提示。`--max-rounds` 限制每个问题的模型调用次数（默认 8），连续重复工具调用会提前停止。带项目时可用 `--repo-map off`、`--project-notes off`、`--docs off` 关闭对应固定上下文或文档检索；测试配置沿用 `--test-command`、`--test-timeout` 和 Docker 参数。
+
+所有操作都针对 `workspace/` 中的独立副本，不回写源项目。代码块按语言保存到 `snippets/snippet-N.ext`，附件保存到 `attachments/`，重名自动编号；超过 300 行的文件让模型分段读取。工具只提供文件查找、阅读、搜索、语法检查和问题报告；带项目才提供测试执行，有文档时才提供文档检索。模型请求保存在 `model/round-NNN/`，每轮问答与已核验的问题追加到 `chat.jsonl`；重置历史不删除记录或代码文件。
+
+`review-eval` 每个任务默认跑 1 次，仅把 `eval/tasks/` 中参考修复涉及的含 bug 文件作为附件，不给模型测试或任务说明。问题区间距离参考改动行不超过 1 行算命中，报告同时统计未命中 bug 的问题数（可能是误报，也可能是次要问题）、token 和耗时。结果保存为 `eval/results/review-<时间戳>[-标签].json` 和 `.md`；账号或额度错误会提前停止。这个命中率衡量位置覆盖，不验证每条问题的语义。

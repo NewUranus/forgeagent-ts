@@ -1,0 +1,47 @@
+{
+  "id": "chatcmpl-e296fa35-dee6-9863-93e9-60547ee6bbea",
+  "object": "chat.completion",
+  "created": 1792991216,
+  "model": "qwen3.6-plus",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "reasoning_content": "Let me read the source code and test file to understand the issue.",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_9ec0df3d3a9748a79772c19e",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"paginate.ts\"}"
+            },
+            "index": 0
+          },
+          {
+            "id": "call_0be7282571ef4617bcd15c75",
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "arguments": "{\"relative_path\": \"paginate.test.ts\"}"
+            },
+            "index": 1
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "logprobs": null
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 1640,
+    "total_tokens": 1715,
+    "completion_tokens": 75,
+    "completion_tokens_details": {
+      "reasoning_tokens": 14,
+      "text_tokens": 75
+    }
+  }
+}

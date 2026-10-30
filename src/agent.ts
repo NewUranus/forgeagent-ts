@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ROOT, modelConfig, contextConfig } from "./config.js";
 import { chatCompletion } from "./model/client.js";
-import { isContextOverflow, retryPolicy } from "./model/retry.js";
+import { isAccountError, isContextOverflow, retryPolicy } from "./model/retry.js";
 import { LoopDetector } from "./loop.js";
 import {
   commitWorkspace,
@@ -185,6 +185,8 @@ export async function runAgent(options: AgentOptions = {}) {
   // Retries only matter for real API calls; read the policy there so other modes need no settings.
   const policy = mode === "api" ? retryPolicy() : { retries: 0, baseMs: 0, maxMs: 0 };
   let reason = "round_limit", errorMessage: string | null = null;
+  // A failure that every later run would hit too (key, access, model, quota); an eval stops on it.
+  let accountError = false;
   let toolCalls = 0, successfulWrites = 0, toolErrors = 0;
   let applied = false;
   let appliedCommit: string | null = null;
@@ -569,6 +571,7 @@ export async function runAgent(options: AgentOptions = {}) {
     if (error instanceof ContextBudgetExceededError) reason = "context_limit";
     else if (!["model_error", "setup_error", "server_context_limit"].includes(reason)) reason = "execution_error";
     errorMessage = String(error);
+    accountError = reason === "model_error" && isAccountError(error);
     await fs.writeFile(
       path.join(workspace.taskDir, "error.txt"),
       String(error),
@@ -653,7 +656,7 @@ export async function runAgent(options: AgentOptions = {}) {
         workspace: workspace.mode, setup_command: options.setupCommand ?? null, test_config: testConfig, strategy },
     },
     timing: { started_at: startedAt, ended_at: new Date().toISOString(), duration_ms: Math.round(performance.now() - runStart) },
-    termination: { reason, error: errorMessage, verified, plan, test_tampering: testTampering },
+    termination: { reason, error: errorMessage, account_error: accountError, verified, plan, test_tampering: testTampering },
     statistics: {
       model, tool_calls: toolCalls, tool_errors: toolErrors, successful_writes: successfulWrites, test_runs: testHistory.runs.length,
       // Only API runs build a request window; other modes leave these at zero.

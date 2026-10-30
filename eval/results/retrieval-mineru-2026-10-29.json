@@ -1,0 +1,2177 @@
+{
+  "date": "2026-10-29",
+  "cases": "eval/retrieval/thinkpython.json",
+  "k": 5,
+  "mineru": {
+    "version": "4.0.12",
+    "tier": "basic"
+  },
+  "runs": [
+    {
+      "index": "thinkpython2.index.json",
+      "parser": "pypdf（原 Python 项目索引）",
+      "method": "bm25",
+      "recall_at_5": 0.84375,
+      "mrr": 0.7526041666666666,
+      "per_case": [
+        {
+          "query": "What is infinite recursion?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 217 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 217 页"
+          ]
+        },
+        {
+          "query": "How do I get the remainder after dividing two integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 42 页"
+          ]
+        },
+        {
+          "query": "What do the logical operators and, or and not do?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 33 页"
+          ]
+        },
+        {
+          "query": "How can a program read what the user types?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 68 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 220 页",
+            "thinkpython2.pdf 第 67 页"
+          ]
+        },
+        {
+          "query": "Why should I assume a recursive call works when reading a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 80 页"
+          ]
+        },
+        {
+          "query": "What is incremental development?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 74 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 82 页"
+          ]
+        },
+        {
+          "query": "How can I make factorial reject arguments that are not integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 78 页",
+            "thinkpython2.pdf 第 101 页",
+            "thinkpython2.pdf 第 126 页"
+          ]
+        },
+        {
+          "query": "How does the while statement work?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 33 页",
+            "thinkpython2.pdf 第 222 页",
+            "thinkpython2.pdf 第 58 页",
+            "thinkpython2.pdf 第 227 页",
+            "thinkpython2.pdf 第 35 页"
+          ]
+        },
+        {
+          "query": "How do you compute square roots with Newton's method?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 10 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 53 页"
+          ]
+        },
+        {
+          "query": "Why can't I assign to a single character of a string?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 41 页",
+            "thinkpython2.pdf 第 46 页",
+            "thinkpython2.pdf 第 117 页",
+            "thinkpython2.pdf 第 146 页"
+          ]
+        },
+        {
+          "query": "How do string slices work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 42 页"
+          ]
+        },
+        {
+          "query": "How do I check whether one string appears inside another?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 61 页"
+          ]
+        },
+        {
+          "query": "Why does changing one list also change another variable that refers to it?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 173 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 86 页",
+            "thinkpython2.pdf 第 31 页",
+            "thinkpython2.pdf 第 96 页"
+          ]
+        },
+        {
+          "query": "What are map, filter and reduce?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 240 页"
+          ]
+        },
+        {
+          "query": "How can I count how many times each letter appears in a word?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 97 页"
+          ]
+        },
+        {
+          "query": "How does a reverse lookup in a dictionary work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 241 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 134 页"
+          ]
+        },
+        {
+          "query": "How can I speed up a recursive fibonacci function by remembering earlier results?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 150 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 130 页"
+          ]
+        },
+        {
+          "query": "How do I update a global variable inside a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 243 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 237 页"
+          ]
+        },
+        {
+          "query": "How can I swap the values of two variables in one statement?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 138 页",
+            "thinkpython2.pdf 第 36 页",
+            "thinkpython2.pdf 第 205 页",
+            "thinkpython2.pdf 第 93 页",
+            "thinkpython2.pdf 第 122 页"
+          ]
+        },
+        {
+          "query": "How do I write a function that takes any number of arguments?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 106 页",
+            "thinkpython2.pdf 第 106 页",
+            "thinkpython2.pdf 第 66 页"
+          ]
+        },
+        {
+          "query": "How do I catch an exception when opening a file fails?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 163 页"
+          ]
+        },
+        {
+          "query": "How can I turn an object into a string so it can be stored in a database?",
+          "rank": 4,
+          "top": [
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 159 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 164 页",
+            "thinkpython2.pdf 第 167 页"
+          ]
+        },
+        {
+          "query": "How does the format operator work?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 191 页",
+            "thinkpython2.pdf 第 161 页",
+            "thinkpython2.pdf 第 222 页"
+          ]
+        },
+        {
+          "query": "What is the difference between a shallow copy and a deep copy?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 175 页",
+            "thinkpython2.pdf 第 234 页",
+            "thinkpython2.pdf 第 225 页",
+            "thinkpython2.pdf 第 225 页",
+            "thinkpython2.pdf 第 27 页"
+          ]
+        },
+        {
+          "query": "What is the difference between pure functions and modifiers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 179 页",
+            "thinkpython2.pdf 第 19 页",
+            "thinkpython2.pdf 第 19 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 178 页"
+          ]
+        },
+        {
+          "query": "Which special method runs automatically when a new object is created?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 163 页"
+          ]
+        },
+        {
+          "query": "How can I make the + operator work for my own class?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 6 页",
+            "thinkpython2.pdf 第 42 页"
+          ]
+        },
+        {
+          "query": "What is polymorphism?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 189 页"
+          ]
+        },
+        {
+          "query": "How do I define a new class that reuses the methods of an existing class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 184 页"
+          ]
+        },
+        {
+          "query": "How do list comprehensions work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 42 页",
+            "thinkpython2.pdf 第 35 页"
+          ]
+        },
+        {
+          "query": "How can I produce values lazily one at a time instead of building a whole list?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 125 页",
+            "thinkpython2.pdf 第 137 页",
+            "thinkpython2.pdf 第 180 页"
+          ]
+        },
+        {
+          "query": "What is a named tuple?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 31 页",
+            "thinkpython2.pdf 第 170 页"
+          ]
+        }
+      ]
+    },
+    {
+      "index": "thinkpython2.index.json",
+      "parser": "pypdf（原 Python 项目索引）",
+      "method": "hybrid",
+      "recall_at_5": 0.96875,
+      "mrr": 0.8411458333333333,
+      "per_case": [
+        {
+          "query": "What is infinite recursion?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 217 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 69 页"
+          ]
+        },
+        {
+          "query": "How do I get the remainder after dividing two integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 69 页"
+          ]
+        },
+        {
+          "query": "What do the logical operators and, or and not do?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 64 页"
+          ]
+        },
+        {
+          "query": "How can a program read what the user types?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 28 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 68 页"
+          ]
+        },
+        {
+          "query": "Why should I assume a recursive call works when reading a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 66 页"
+          ]
+        },
+        {
+          "query": "What is incremental development?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 74 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 75 页",
+            "thinkpython2.pdf 第 82 页",
+            "thinkpython2.pdf 第 15 页"
+          ]
+        },
+        {
+          "query": "How can I make factorial reject arguments that are not integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 78 页",
+            "thinkpython2.pdf 第 81 页",
+            "thinkpython2.pdf 第 81 页"
+          ]
+        },
+        {
+          "query": "How does the while statement work?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 82 页",
+            "thinkpython2.pdf 第 33 页",
+            "thinkpython2.pdf 第 87 页",
+            "thinkpython2.pdf 第 222 页",
+            "thinkpython2.pdf 第 86 页"
+          ]
+        },
+        {
+          "query": "How do you compute square roots with Newton's method?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 10 页",
+            "thinkpython2.pdf 第 40 页"
+          ]
+        },
+        {
+          "query": "Why can't I assign to a single character of a string?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 117 页",
+            "thinkpython2.pdf 第 94 页",
+            "thinkpython2.pdf 第 41 页"
+          ]
+        },
+        {
+          "query": "How do string slices work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 101 页",
+            "thinkpython2.pdf 第 96 页"
+          ]
+        },
+        {
+          "query": "How do I check whether one string appears inside another?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 100 页",
+            "thinkpython2.pdf 第 123 页",
+            "thinkpython2.pdf 第 117 页"
+          ]
+        },
+        {
+          "query": "Why does changing one list also change another variable that refers to it?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 118 页",
+            "thinkpython2.pdf 第 86 页",
+            "thinkpython2.pdf 第 133 页",
+            "thinkpython2.pdf 第 173 页"
+          ]
+        },
+        {
+          "query": "What are map, filter and reduce?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 206 页"
+          ]
+        },
+        {
+          "query": "How can I count how many times each letter appears in a word?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 106 页",
+            "thinkpython2.pdf 第 209 页"
+          ]
+        },
+        {
+          "query": "How does a reverse lookup in a dictionary work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 128 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 17 页"
+          ]
+        },
+        {
+          "query": "How can I speed up a recursive fibonacci function by remembering earlier results?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页"
+          ]
+        },
+        {
+          "query": "How do I update a global variable inside a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 133 页",
+            "thinkpython2.pdf 第 237 页"
+          ]
+        },
+        {
+          "query": "How can I swap the values of two variables in one statement?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 138 页",
+            "thinkpython2.pdf 第 36 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 85 页",
+            "thinkpython2.pdf 第 100 页"
+          ]
+        },
+        {
+          "query": "How do I write a function that takes any number of arguments?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 43 页",
+            "thinkpython2.pdf 第 49 页",
+            "thinkpython2.pdf 第 55 页"
+          ]
+        },
+        {
+          "query": "How do I catch an exception when opening a file fails?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 129 页"
+          ]
+        },
+        {
+          "query": "How can I turn an object into a string so it can be stored in a database?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 164 页",
+            "thinkpython2.pdf 第 159 页",
+            "thinkpython2.pdf 第 170 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 163 页"
+          ]
+        },
+        {
+          "query": "How does the format operator work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 161 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 236 页"
+          ]
+        },
+        {
+          "query": "What is the difference between a shallow copy and a deep copy?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 175 页",
+            "thinkpython2.pdf 第 234 页",
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 235 页",
+            "thinkpython2.pdf 第 174 页"
+          ]
+        },
+        {
+          "query": "What is the difference between pure functions and modifiers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 179 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 19 页",
+            "thinkpython2.pdf 第 178 页",
+            "thinkpython2.pdf 第 19 页"
+          ]
+        },
+        {
+          "query": "Which special method runs automatically when a new object is created?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 186 页",
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 170 页",
+            "thinkpython2.pdf 第 210 页"
+          ]
+        },
+        {
+          "query": "How can I make the + operator work for my own class?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 34 页",
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 191 页",
+            "thinkpython2.pdf 第 188 页",
+            "thinkpython2.pdf 第 5 页"
+          ]
+        },
+        {
+          "query": "What is polymorphism?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 241 页"
+          ]
+        },
+        {
+          "query": "How do I define a new class that reuses the methods of an existing class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 184 页",
+            "thinkpython2.pdf 第 212 页"
+          ]
+        },
+        {
+          "query": "How do list comprehensions work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 113 页"
+          ]
+        },
+        {
+          "query": "How can I produce values lazily one at a time instead of building a whole list?",
+          "rank": 4,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 111 页",
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 122 页"
+          ]
+        },
+        {
+          "query": "What is a named tuple?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 137 页",
+            "thinkpython2.pdf 第 144 页",
+            "thinkpython2.pdf 第 139 页"
+          ]
+        }
+      ]
+    },
+    {
+      "index": "thinkpython2.pdfjs.index.json",
+      "parser": "PDF.js",
+      "method": "bm25",
+      "recall_at_5": 0.9375,
+      "mrr": 0.8265625,
+      "per_case": [
+        {
+          "query": "What is infinite recursion?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 217 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页"
+          ]
+        },
+        {
+          "query": "How do I get the remainder after dividing two integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 42 页"
+          ]
+        },
+        {
+          "query": "What do the logical operators and, or and not do?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 36 页"
+          ]
+        },
+        {
+          "query": "How can a program read what the user types?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 68 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 55 页"
+          ]
+        },
+        {
+          "query": "Why should I assume a recursive call works when reading a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 66 页"
+          ]
+        },
+        {
+          "query": "What is incremental development?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 74 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 82 页"
+          ]
+        },
+        {
+          "query": "How can I make factorial reject arguments that are not integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 81 页",
+            "thinkpython2.pdf 第 78 页",
+            "thinkpython2.pdf 第 80 页"
+          ]
+        },
+        {
+          "query": "How does the while statement work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 87 页",
+            "thinkpython2.pdf 第 86 页",
+            "thinkpython2.pdf 第 222 页",
+            "thinkpython2.pdf 第 227 页",
+            "thinkpython2.pdf 第 58 页"
+          ]
+        },
+        {
+          "query": "How do you compute square roots with Newton's method?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 10 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 23 页"
+          ]
+        },
+        {
+          "query": "Why can't I assign to a single character of a string?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 41 页",
+            "thinkpython2.pdf 第 117 页",
+            "thinkpython2.pdf 第 146 页",
+            "thinkpython2.pdf 第 108 页"
+          ]
+        },
+        {
+          "query": "How do string slices work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 42 页"
+          ]
+        },
+        {
+          "query": "How do I check whether one string appears inside another?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 155 页",
+            "thinkpython2.pdf 第 61 页"
+          ]
+        },
+        {
+          "query": "Why does changing one list also change another variable that refers to it?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 112 页",
+            "thinkpython2.pdf 第 118 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 173 页",
+            "thinkpython2.pdf 第 86 页"
+          ]
+        },
+        {
+          "query": "What are map, filter and reduce?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 240 页"
+          ]
+        },
+        {
+          "query": "How can I count how many times each letter appears in a word?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 189 页"
+          ]
+        },
+        {
+          "query": "How does a reverse lookup in a dictionary work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 241 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 134 页"
+          ]
+        },
+        {
+          "query": "How can I speed up a recursive fibonacci function by remembering earlier results?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 150 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 79 页"
+          ]
+        },
+        {
+          "query": "How do I update a global variable inside a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 243 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 237 页"
+          ]
+        },
+        {
+          "query": "How can I swap the values of two variables in one statement?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 138 页",
+            "thinkpython2.pdf 第 36 页",
+            "thinkpython2.pdf 第 93 页",
+            "thinkpython2.pdf 第 205 页",
+            "thinkpython2.pdf 第 139 页"
+          ]
+        },
+        {
+          "query": "How do I write a function that takes any number of arguments?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 106 页",
+            "thinkpython2.pdf 第 66 页"
+          ]
+        },
+        {
+          "query": "How do I catch an exception when opening a file fails?",
+          "rank": 4,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 160 页"
+          ]
+        },
+        {
+          "query": "How can I turn an object into a string so it can be stored in a database?",
+          "rank": 5,
+          "top": [
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 159 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 164 页"
+          ]
+        },
+        {
+          "query": "How does the format operator work?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 18 页",
+            "thinkpython2.pdf 第 191 页",
+            "thinkpython2.pdf 第 161 页"
+          ]
+        },
+        {
+          "query": "What is the difference between a shallow copy and a deep copy?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 175 页",
+            "thinkpython2.pdf 第 234 页",
+            "thinkpython2.pdf 第 225 页",
+            "thinkpython2.pdf 第 174 页"
+          ]
+        },
+        {
+          "query": "What is the difference between pure functions and modifiers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 179 页",
+            "thinkpython2.pdf 第 19 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 178 页",
+            "thinkpython2.pdf 第 180 页"
+          ]
+        },
+        {
+          "query": "Which special method runs automatically when a new object is created?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 163 页"
+          ]
+        },
+        {
+          "query": "How can I make the + operator work for my own class?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 6 页",
+            "thinkpython2.pdf 第 34 页"
+          ]
+        },
+        {
+          "query": "What is polymorphism?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 189 页"
+          ]
+        },
+        {
+          "query": "How do I define a new class that reuses the methods of an existing class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 184 页"
+          ]
+        },
+        {
+          "query": "How do list comprehensions work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 42 页",
+            "thinkpython2.pdf 第 35 页"
+          ]
+        },
+        {
+          "query": "How can I produce values lazily one at a time instead of building a whole list?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 125 页",
+            "thinkpython2.pdf 第 137 页"
+          ]
+        },
+        {
+          "query": "What is a named tuple?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 137 页",
+            "thinkpython2.pdf 第 138 页"
+          ]
+        }
+      ]
+    },
+    {
+      "index": "thinkpython2.pdfjs.index.json",
+      "parser": "PDF.js",
+      "method": "hybrid",
+      "recall_at_5": 0.96875,
+      "mrr": 0.8734375,
+      "per_case": [
+        {
+          "query": "What is infinite recursion?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 217 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 69 页"
+          ]
+        },
+        {
+          "query": "How do I get the remainder after dividing two integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 69 页"
+          ]
+        },
+        {
+          "query": "What do the logical operators and, or and not do?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 64 页"
+          ]
+        },
+        {
+          "query": "How can a program read what the user types?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 28 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 26 页"
+          ]
+        },
+        {
+          "query": "Why should I assume a recursive call works when reading a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 66 页"
+          ]
+        },
+        {
+          "query": "What is incremental development?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 74 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 82 页",
+            "thinkpython2.pdf 第 15 页"
+          ]
+        },
+        {
+          "query": "How can I make factorial reject arguments that are not integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 78 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 81 页"
+          ]
+        },
+        {
+          "query": "How does the while statement work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 87 页",
+            "thinkpython2.pdf 第 86 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 218 页"
+          ]
+        },
+        {
+          "query": "How do you compute square roots with Newton's method?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 10 页",
+            "thinkpython2.pdf 第 53 页"
+          ]
+        },
+        {
+          "query": "Why can't I assign to a single character of a string?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 94 页",
+            "thinkpython2.pdf 第 94 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 117 页"
+          ]
+        },
+        {
+          "query": "How do string slices work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 126 页"
+          ]
+        },
+        {
+          "query": "How do I check whether one string appears inside another?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 123 页",
+            "thinkpython2.pdf 第 100 页",
+            "thinkpython2.pdf 第 209 页"
+          ]
+        },
+        {
+          "query": "Why does changing one list also change another variable that refers to it?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 118 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 120 页",
+            "thinkpython2.pdf 第 112 页",
+            "thinkpython2.pdf 第 173 页"
+          ]
+        },
+        {
+          "query": "What are map, filter and reduce?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 116 页"
+          ]
+        },
+        {
+          "query": "How can I count how many times each letter appears in a word?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 209 页"
+          ]
+        },
+        {
+          "query": "How does a reverse lookup in a dictionary work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 128 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 128 页"
+          ]
+        },
+        {
+          "query": "How can I speed up a recursive fibonacci function by remembering earlier results?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页"
+          ]
+        },
+        {
+          "query": "How do I update a global variable inside a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 133 页",
+            "thinkpython2.pdf 第 91 页"
+          ]
+        },
+        {
+          "query": "How can I swap the values of two variables in one statement?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 138 页",
+            "thinkpython2.pdf 第 36 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 85 页",
+            "thinkpython2.pdf 第 31 页"
+          ]
+        },
+        {
+          "query": "How do I write a function that takes any number of arguments?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 43 页",
+            "thinkpython2.pdf 第 55 页",
+            "thinkpython2.pdf 第 49 页"
+          ]
+        },
+        {
+          "query": "How do I catch an exception when opening a file fails?",
+          "rank": 5,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 163 页"
+          ]
+        },
+        {
+          "query": "How can I turn an object into a string so it can be stored in a database?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 164 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 159 页",
+            "thinkpython2.pdf 第 160 页"
+          ]
+        },
+        {
+          "query": "How does the format operator work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 161 页",
+            "thinkpython2.pdf 第 18 页",
+            "thinkpython2.pdf 第 160 页"
+          ]
+        },
+        {
+          "query": "What is the difference between a shallow copy and a deep copy?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 175 页",
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 234 页",
+            "thinkpython2.pdf 第 174 页"
+          ]
+        },
+        {
+          "query": "What is the difference between pure functions and modifiers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 179 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 178 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 19 页"
+          ]
+        },
+        {
+          "query": "Which special method runs automatically when a new object is created?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 186 页",
+            "thinkpython2.pdf 第 210 页",
+            "thinkpython2.pdf 第 170 页",
+            "thinkpython2.pdf 第 202 页"
+          ]
+        },
+        {
+          "query": "How can I make the + operator work for my own class?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 34 页",
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 191 页",
+            "thinkpython2.pdf 第 188 页",
+            "thinkpython2.pdf 第 5 页"
+          ]
+        },
+        {
+          "query": "What is polymorphism?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 241 页"
+          ]
+        },
+        {
+          "query": "How do I define a new class that reuses the methods of an existing class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 184 页",
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 177 页"
+          ]
+        },
+        {
+          "query": "How do list comprehensions work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 113 页"
+          ]
+        },
+        {
+          "query": "How can I produce values lazily one at a time instead of building a whole list?",
+          "rank": 4,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 111 页",
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 126 页"
+          ]
+        },
+        {
+          "query": "What is a named tuple?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 144 页",
+            "thinkpython2.pdf 第 137 页",
+            "thinkpython2.pdf 第 138 页"
+          ]
+        }
+      ]
+    },
+    {
+      "index": "thinkpython2.mineru.index.json",
+      "parser": "MinerU",
+      "method": "bm25",
+      "recall_at_5": 0.90625,
+      "mrr": 0.75625,
+      "per_case": [
+        {
+          "query": "What is infinite recursion?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 217 页",
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 15 页"
+          ]
+        },
+        {
+          "query": "How do I get the remainder after dividing two integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 230 页",
+            "thinkpython2.pdf 第 69 页"
+          ]
+        },
+        {
+          "query": "What do the logical operators and, or and not do?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 36 页",
+            "thinkpython2.pdf 第 35 页"
+          ]
+        },
+        {
+          "query": "How can a program read what the user types?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 70 页",
+            "thinkpython2.pdf 第 55 页"
+          ]
+        },
+        {
+          "query": "Why should I assume a recursive call works when reading a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 130 页",
+            "thinkpython2.pdf 第 163 页"
+          ]
+        },
+        {
+          "query": "What is incremental development?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 74 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 75 页",
+            "thinkpython2.pdf 第 82 页",
+            "thinkpython2.pdf 第 182 页"
+          ]
+        },
+        {
+          "query": "How can I make factorial reject arguments that are not integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 78 页",
+            "thinkpython2.pdf 第 93 页",
+            "thinkpython2.pdf 第 81 页"
+          ]
+        },
+        {
+          "query": "How does the while statement work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 86 页",
+            "thinkpython2.pdf 第 55 页",
+            "thinkpython2.pdf 第 87 页",
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 80 页"
+          ]
+        },
+        {
+          "query": "How do you compute square roots with Newton's method?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 10 页"
+          ]
+        },
+        {
+          "query": "Why can't I assign to a single character of a string?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 146 页",
+            "thinkpython2.pdf 第 93 页",
+            "thinkpython2.pdf 第 108 页"
+          ]
+        },
+        {
+          "query": "How do string slices work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 220 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 101 页",
+            "thinkpython2.pdf 第 160 页"
+          ]
+        },
+        {
+          "query": "How do I check whether one string appears inside another?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 135 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 155 页",
+            "thinkpython2.pdf 第 126 页"
+          ]
+        },
+        {
+          "query": "Why does changing one list also change another variable that refers to it?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 173 页",
+            "thinkpython2.pdf 第 220 页",
+            "thinkpython2.pdf 第 46 页",
+            "thinkpython2.pdf 第 191 页"
+          ]
+        },
+        {
+          "query": "What are map, filter and reduce?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 122 页"
+          ]
+        },
+        {
+          "query": "How can I count how many times each letter appears in a word?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 147 页"
+          ]
+        },
+        {
+          "query": "How does a reverse lookup in a dictionary work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 128 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 134 页"
+          ]
+        },
+        {
+          "query": "How can I speed up a recursive fibonacci function by remembering earlier results?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 236 页"
+          ]
+        },
+        {
+          "query": "How do I update a global variable inside a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 243 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 90 页",
+            "thinkpython2.pdf 第 133 页"
+          ]
+        },
+        {
+          "query": "How can I swap the values of two variables in one statement?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 138 页",
+            "thinkpython2.pdf 第 93 页",
+            "thinkpython2.pdf 第 85 页",
+            "thinkpython2.pdf 第 30 页",
+            "thinkpython2.pdf 第 36 页"
+          ]
+        },
+        {
+          "query": "How do I write a function that takes any number of arguments?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 43 页",
+            "thinkpython2.pdf 第 212 页"
+          ]
+        },
+        {
+          "query": "How do I catch an exception when opening a file fails?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 159 页",
+            "thinkpython2.pdf 第 129 页"
+          ]
+        },
+        {
+          "query": "How can I turn an object into a string so it can be stored in a database?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 164 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 159 页"
+          ]
+        },
+        {
+          "query": "How does the format operator work?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 161 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 99 页"
+          ]
+        },
+        {
+          "query": "What is the difference between a shallow copy and a deep copy?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 175 页",
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 234 页",
+            "thinkpython2.pdf 第 225 页"
+          ]
+        },
+        {
+          "query": "What is the difference between pure functions and modifiers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 179 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 178 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 225 页"
+          ]
+        },
+        {
+          "query": "Which special method runs automatically when a new object is created?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 47 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 200 页",
+            "thinkpython2.pdf 第 159 页"
+          ]
+        },
+        {
+          "query": "How can I make the + operator work for my own class?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 42 页",
+            "thinkpython2.pdf 第 6 页",
+            "thinkpython2.pdf 第 110 页"
+          ]
+        },
+        {
+          "query": "What is polymorphism?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 241 页",
+            "thinkpython2.pdf 第 29 页"
+          ]
+        },
+        {
+          "query": "How do I define a new class that reuses the methods of an existing class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 193 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 212 页"
+          ]
+        },
+        {
+          "query": "How do list comprehensions work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 220 页",
+            "thinkpython2.pdf 第 55 页"
+          ]
+        },
+        {
+          "query": "How can I produce values lazily one at a time instead of building a whole list?",
+          "rank": 5,
+          "top": [
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 143 页",
+            "thinkpython2.pdf 第 99 页",
+            "thinkpython2.pdf 第 207 页"
+          ]
+        },
+        {
+          "query": "What is a named tuple?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 137 页",
+            "thinkpython2.pdf 第 53 页",
+            "thinkpython2.pdf 第 139 页"
+          ]
+        }
+      ]
+    },
+    {
+      "index": "thinkpython2.mineru.index.json",
+      "parser": "MinerU",
+      "method": "hybrid",
+      "recall_at_5": 0.96875,
+      "mrr": 0.8776041666666667,
+      "per_case": [
+        {
+          "query": "What is infinite recursion?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 217 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页"
+          ]
+        },
+        {
+          "query": "How do I get the remainder after dividing two integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 83 页"
+          ]
+        },
+        {
+          "query": "What do the logical operators and, or and not do?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 62 页",
+            "thinkpython2.pdf 第 69 页",
+            "thinkpython2.pdf 第 15 页",
+            "thinkpython2.pdf 第 64 页",
+            "thinkpython2.pdf 第 36 页"
+          ]
+        },
+        {
+          "query": "How can a program read what the user types?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 67 页",
+            "thinkpython2.pdf 第 28 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 26 页"
+          ]
+        },
+        {
+          "query": "Why should I assume a recursive call works when reading a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 66 页",
+            "thinkpython2.pdf 第 218 页",
+            "thinkpython2.pdf 第 78 页"
+          ]
+        },
+        {
+          "query": "What is incremental development?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 74 页",
+            "thinkpython2.pdf 第 75 页",
+            "thinkpython2.pdf 第 76 页",
+            "thinkpython2.pdf 第 82 页",
+            "thinkpython2.pdf 第 180 页"
+          ]
+        },
+        {
+          "query": "How can I make factorial reject arguments that are not integers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 80 页",
+            "thinkpython2.pdf 第 78 页",
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 77 页"
+          ]
+        },
+        {
+          "query": "How does the while statement work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 86 页",
+            "thinkpython2.pdf 第 87 页",
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 87 页",
+            "thinkpython2.pdf 第 36 页"
+          ]
+        },
+        {
+          "query": "How do you compute square roots with Newton's method?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 88 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 89 页",
+            "thinkpython2.pdf 第 54 页"
+          ]
+        },
+        {
+          "query": "Why can't I assign to a single character of a string?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 93 页",
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 94 页"
+          ]
+        },
+        {
+          "query": "How do string slices work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 95 页",
+            "thinkpython2.pdf 第 101 页",
+            "thinkpython2.pdf 第 16 页",
+            "thinkpython2.pdf 第 93 页"
+          ]
+        },
+        {
+          "query": "How do I check whether one string appears inside another?",
+          "rank": 3,
+          "top": [
+            "thinkpython2.pdf 第 96 页",
+            "thinkpython2.pdf 第 61 页",
+            "thinkpython2.pdf 第 98 页",
+            "thinkpython2.pdf 第 135 页",
+            "thinkpython2.pdf 第 98 页"
+          ]
+        },
+        {
+          "query": "Why does changing one list also change another variable that refers to it?",
+          "rank": null,
+          "top": [
+            "thinkpython2.pdf 第 122 页",
+            "thinkpython2.pdf 第 120 页",
+            "thinkpython2.pdf 第 173 页",
+            "thinkpython2.pdf 第 133 页",
+            "thinkpython2.pdf 第 112 页"
+          ]
+        },
+        {
+          "query": "What are map, filter and reduce?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 116 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 122 页"
+          ]
+        },
+        {
+          "query": "How can I count how many times each letter appears in a word?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 126 页",
+            "thinkpython2.pdf 第 97 页",
+            "thinkpython2.pdf 第 147 页",
+            "thinkpython2.pdf 第 209 页",
+            "thinkpython2.pdf 第 106 页"
+          ]
+        },
+        {
+          "query": "How does a reverse lookup in a dictionary work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 128 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 129 页",
+            "thinkpython2.pdf 第 17 页",
+            "thinkpython2.pdf 第 134 页"
+          ]
+        },
+        {
+          "query": "How can I speed up a recursive fibonacci function by remembering earlier results?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 79 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 131 页",
+            "thinkpython2.pdf 第 236 页",
+            "thinkpython2.pdf 第 79 页"
+          ]
+        },
+        {
+          "query": "How do I update a global variable inside a function?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 133 页",
+            "thinkpython2.pdf 第 132 页",
+            "thinkpython2.pdf 第 134 页",
+            "thinkpython2.pdf 第 90 页"
+          ]
+        },
+        {
+          "query": "How can I swap the values of two variables in one statement?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 138 页",
+            "thinkpython2.pdf 第 85 页",
+            "thinkpython2.pdf 第 30 页",
+            "thinkpython2.pdf 第 36 页",
+            "thinkpython2.pdf 第 32 页"
+          ]
+        },
+        {
+          "query": "How do I write a function that takes any number of arguments?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 140 页",
+            "thinkpython2.pdf 第 43 页",
+            "thinkpython2.pdf 第 48 页",
+            "thinkpython2.pdf 第 212 页"
+          ]
+        },
+        {
+          "query": "How do I catch an exception when opening a file fails?",
+          "rank": 4,
+          "top": [
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 159 页",
+            "thinkpython2.pdf 第 162 页",
+            "thinkpython2.pdf 第 218 页"
+          ]
+        },
+        {
+          "query": "How can I turn an object into a string so it can be stored in a database?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 164 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 163 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 159 页"
+          ]
+        },
+        {
+          "query": "How does the format operator work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 167 页",
+            "thinkpython2.pdf 第 161 页",
+            "thinkpython2.pdf 第 160 页",
+            "thinkpython2.pdf 第 137 页"
+          ]
+        },
+        {
+          "query": "What is the difference between a shallow copy and a deep copy?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 175 页",
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 174 页",
+            "thinkpython2.pdf 第 234 页",
+            "thinkpython2.pdf 第 235 页"
+          ]
+        },
+        {
+          "query": "What is the difference between pure functions and modifiers?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 179 页",
+            "thinkpython2.pdf 第 182 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 178 页",
+            "thinkpython2.pdf 第 179 页"
+          ]
+        },
+        {
+          "query": "Which special method runs automatically when a new object is created?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 186 页",
+            "thinkpython2.pdf 第 210 页",
+            "thinkpython2.pdf 第 170 页",
+            "thinkpython2.pdf 第 200 页"
+          ]
+        },
+        {
+          "query": "How can I make the + operator work for my own class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 187 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 188 页",
+            "thinkpython2.pdf 第 5 页",
+            "thinkpython2.pdf 第 188 页"
+          ]
+        },
+        {
+          "query": "What is polymorphism?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 190 页",
+            "thinkpython2.pdf 第 189 页",
+            "thinkpython2.pdf 第 20 页",
+            "thinkpython2.pdf 第 241 页",
+            "thinkpython2.pdf 第 191 页"
+          ]
+        },
+        {
+          "query": "How do I define a new class that reuses the methods of an existing class?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 198 页",
+            "thinkpython2.pdf 第 193 页",
+            "thinkpython2.pdf 第 202 页",
+            "thinkpython2.pdf 第 184 页"
+          ]
+        },
+        {
+          "query": "How do list comprehensions work?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 206 页",
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 143 页",
+            "thinkpython2.pdf 第 213 页"
+          ]
+        },
+        {
+          "query": "How can I produce values lazily one at a time instead of building a whole list?",
+          "rank": 2,
+          "top": [
+            "thinkpython2.pdf 第 115 页",
+            "thinkpython2.pdf 第 207 页",
+            "thinkpython2.pdf 第 111 页",
+            "thinkpython2.pdf 第 180 页",
+            "thinkpython2.pdf 第 143 页"
+          ]
+        },
+        {
+          "query": "What is a named tuple?",
+          "rank": 1,
+          "top": [
+            "thinkpython2.pdf 第 212 页",
+            "thinkpython2.pdf 第 137 页",
+            "thinkpython2.pdf 第 139 页",
+            "thinkpython2.pdf 第 144 页",
+            "thinkpython2.pdf 第 138 页"
+          ]
+        }
+      ]
+    }
+  ]
+}

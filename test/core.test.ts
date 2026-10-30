@@ -10,6 +10,7 @@ import { runTests, executeTool } from '../src/tools.ts';
 import { runAgent } from '../src/agent.ts';
 import { runRepairDemo } from '../src/runner.ts';
 import { chunkPages } from '../src/rag/chunker.ts';
+import { loadMineru } from '../src/rag/mineru-loader.ts';
 import { search, loadIndex } from '../src/rag/retriever.ts';
 import { embed } from '../src/rag/embedding.ts';
 import { MCPClient } from '../src/mcp/client.ts';
@@ -104,6 +105,21 @@ test('chunks preserve overlap and reject non-terminating settings', () => {
   const chunks = chunkPages(pages, 6, 2);
   assert.deepEqual(chunks.map(c => c.content), ['abcdef', 'efghij']);
   assert.throws(() => chunkPages(pages, 6, 6));
+});
+test('MinerU chunks carry heading paths across pages and drop running heads', async t => {
+  const root = await temp(t), file = path.join(root, 'structured_content.json');
+  const block = (type: string, content: string, y: number, level?: number) => ({ type, content, level, bbox: [0.1, y, 0.9, y + 0.02] });
+  await fs.writeFile(file, JSON.stringify({ pages: [
+    { page_idx: 0, blocks: [block('page_number', '1', 0.07), block('paragraph_title', '5 Recursion', 0.1, 1), block('paragraph_title', '5.1 Base case', 0.2, 2), block('text', 'aaaa', 0.3)] },
+    // A running head typed as a title, on the page number's line, must not open a new section.
+    { page_idx: 1, blocks: [block('paragraph_title', '5.2. Next', 0.07, 2), block('page_number', '2', 0.07), block('text', 'bbbb', 0.2), block('paragraph_title', '5.2 Next', 0.4, 2), block('code', 'x'.repeat(25), 0.5)] },
+  ] }));
+  const chunks = await loadMineru(file, 'book.pdf', 20);
+  assert.deepEqual(chunks.map(c => [c.page, c.content]), [
+    [1, '5 Recursion > 5.1 Base case\naaaa\nbbbb'],
+    [2, '5 Recursion > 5.2 Next\nxxxxxxxxxxxxxxxxxxxx'],
+    [2, '5 Recursion > 5.2 Next\nxxxxx'],
+  ]);
 });
 test('legacy Python index loads and cosine ranking is correct', async t => {
   const root = await temp(t), file = path.join(root, 'index.json');

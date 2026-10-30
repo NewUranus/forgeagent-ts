@@ -63,6 +63,8 @@ export interface Attempt {
   changed_files: string[];
   task_dir: string | null;
   error: string | null;
+  /** Bad key, no access, unknown model or no quota: every later run would fail the same way. */
+  account_error: boolean;
 }
 
 export interface TaskSummary {
@@ -149,10 +151,13 @@ export function summarizeTask(task: EvalTask, attempts: Attempt[]): TaskSummary 
 }
 
 // The agent logs every model reply and the full report; across 30 runs that buries the progress lines.
-async function quietly<T>(fn: () => Promise<T>) {
+export async function quietly<T>(fn: () => Promise<T>) {
   const { log, error, warn } = console;
+  // Streamed model text goes straight to stdout, not through console.
+  const write = process.stdout.write;
   console.log = console.error = console.warn = () => {};
-  try { return await fn(); } finally { Object.assign(console, { log, error, warn }); }
+  process.stdout.write = (() => true) as typeof process.stdout.write;
+  try { return await fn(); } finally { Object.assign(console, { log, error, warn }); process.stdout.write = write; }
 }
 
 async function runAttempt(task: EvalTask, attempt: number, options: EvalOptions): Promise<Attempt> {
@@ -167,7 +172,7 @@ async function runAttempt(task: EvalTask, attempt: number, options: EvalOptions)
     return { task: task.name, attempt, passed: false, status: "error", reason: "eval_error", final_tests_passed: null,
       tests_modified: false, rounds: 0, tool_calls: 0, total_tokens: null, prompt_tokens: null, completion_tokens: null,
       rounds_with_dropping: 0, duration_ms: Math.round(performance.now() - start),
-      changed_files: [], task_dir: null, error: String(error) };
+      changed_files: [], task_dir: null, error: String(error), account_error: false };
   }
   // Re-run the suite ourselves instead of trusting the run's own verdict.
   let finalTests: boolean | null;
@@ -188,7 +193,7 @@ async function runAttempt(task: EvalTask, attempt: number, options: EvalOptions)
     total_tokens: tokens("total_tokens"), prompt_tokens: tokens("prompt_tokens"), completion_tokens: tokens("completion_tokens"),
     rounds_with_dropping: report.statistics.context.rounds_with_dropping,
     duration_ms: report.timing.duration_ms, changed_files: report.changed_files,
-    task_dir: report.task_dir, error: report.termination.error,
+    task_dir: report.task_dir, error: report.termination.error, account_error: report.termination.account_error,
   };
 }
 
@@ -200,17 +205,26 @@ export async function runEval(options: EvalOptions) {
   const startedAt = new Date();
   const attempts: Attempt[] = [];
   let done = 0;
+  let stoppedEarly: { after: number; skipped: number; error: string | null } | null = null;
   // Sequential on purpose: parallel runs would hit provider rate limits and share the console.
-  for (const task of tasks) {
+  run: for (const task of tasks) {
     for (let i = 1; i <= repeat; i++) {
       const result = await runAttempt(task, i, options);
       attempts.push(result);
       done++;
       log(`[${done}/${tasks.length * repeat}] ${task.name} #${i}：${result.passed ? "通过" : `未通过（${result.status}/${result.reason}）`}`
         + `，${result.rounds} 轮，${result.tool_calls} 次工具调用，${result.total_tokens ?? "—"} tokens，${(result.duration_ms / 1000).toFixed(1)} 秒`);
+      // The remaining runs would fail the same way and only count as model_error.
+      if (result.account_error) {
+        stoppedEarly = { after: done, skipped: tasks.length * repeat - done, error: result.error };
+        log(`账户或配置错误，停止评测，其余 ${stoppedEarly.skipped} 次不再运行：${String(result.error).slice(0, 300)}`);
+        break run;
+      }
     }
   }
   const summaries = tasks.map((task) => summarizeTask(task, attempts.filter((a) => a.task === task.name)));
+  // After an early stop some tasks ran fewer times; each pass@ only counts tasks with enough attempts.
+  const passAt = (k: number) => mean(summaries.filter((s) => s.attempts >= k).map((s) => passAtK(s.attempts, s.passes, k)));
   const passes = attempts.filter((a) => a.passed).length;
   const result = {
     schema_version: 2,
@@ -218,13 +232,14 @@ export async function runEval(options: EvalOptions) {
     started_at: startedAt.toISOString(),
     ended_at: new Date().toISOString(),
     repeat,
+    stopped_early: stoppedEarly,
     // Taken from the runs, so defaults the agent filled in are recorded too.
     config: await runConfig(attempts, options),
     totals: {
       tasks: tasks.length, attempts: attempts.length, passes,
-      pass_at_1: mean(summaries.map((s) => passAtK(s.attempts, s.passes, 1))),
+      pass_at_1: passAt(1),
       // pass@k with k = repeat: the share of tasks solved at least once.
-      pass_at_k: { k: repeat, value: mean(summaries.map((s) => passAtK(s.attempts, s.passes, repeat))) },
+      pass_at_k: { k: repeat, value: passAt(repeat) },
       tasks_solved_once: summaries.filter((s) => s.passes > 0).length,
       ...costFields(attempts),
     },
@@ -277,6 +292,7 @@ export function renderEval(result: Awaited<ReturnType<typeof runEval>>["result"]
     `- 功能开关：${features}`,
     `- 上下文窗口：${config.context ? `${config.context.window_tokens} tokens（输出预留 ${config.context.output_reserve_tokens}）` : "配置无效"}`,
     `- 每个任务 ${repeat} 次，共 ${totals.attempts} 次运行`,
+    ...(result.stopped_early ? [`- **评测提前停止**：第 ${result.stopped_early.after} 次运行遇到账户或配置错误，其余 ${result.stopped_early.skipped} 次没有运行，下面的数字只覆盖已运行的部分。错误：${String(result.stopped_early.error).slice(0, 300)}`] : []),
     `- **通过 ${totals.passes}/${totals.attempts}**；pass@1 = ${percent(totals.pass_at_1)}${totals.pass_at_k.k > 1 ? `；pass@${totals.pass_at_k.k} = ${percent(totals.pass_at_k.value)}` : ""}（至少通过一次的任务 ${totals.tasks_solved_once}/${totals.tasks}）`,
     `- token：平均 ${count(totals.avg_tokens)}，中位数 ${count(totals.median_tokens)}，平均输入/输出 ${count(totals.avg_prompt_tokens)} / ${count(totals.avg_completion_tokens)}；平均裁剪轮数 ${fixed(totals.avg_rounds_with_dropping)}`,
     "",

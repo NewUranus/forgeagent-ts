@@ -158,3 +158,36 @@ test("API runs record input and output tokens and the context window used", asyn
   assert.match(markdown, /上下文窗口：20000 tokens（输出预留 1000）/);
   assert.match(markdown, /\| noop \| — \| 0\/1 \| 2\.0 \| 1\.0 \| 214 \| 214 \| 200 \/ 14 \| 0\.0 \|/);
 });
+
+test("an account error stops the eval: the remaining runs are skipped, not counted as failures", async t => {
+  const settings = { MODEL_PROVIDER: "EVAL_TEST", EVAL_TEST_API_KEY: "test-only", EVAL_TEST_BASE_URL: "https://example.invalid/v1",
+    EVAL_TEST_MODEL: "eval-test", MODEL_RETRY_BASE_MS: "1" };
+  const previous = Object.keys(settings).map(key => [key, process.env[key]] as const);
+  t.after(() => { for (const [key, value] of previous) if (value === undefined) delete process.env[key]; else process.env[key] = value; });
+  Object.assign(process.env, settings);
+  const root = await temp(t), tasksDir = path.join(root, "tasks");
+  for (const name of ["a", "b"]) {
+    await fs.mkdir(path.join(tasksDir, name, "project"), { recursive: true });
+    await fs.writeFile(path.join(tasksDir, name, "instruction.md"), "看一眼");
+    await fs.writeFile(path.join(tasksDir, name, "task.json"), JSON.stringify({ test_command: "true" }));
+    await fs.writeFile(path.join(tasksDir, name, "project", "a.txt"), "x");
+  }
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: { message: "You exceeded your current quota", code: "insufficient_quota" } }),
+      { status: 429, headers: { "Content-Type": "application/json" } });
+  });
+  const lines: string[] = [];
+  const { result, files } = await runEval({ tasksDir, repeat: 2, outDir: path.join(root, "out"), log: line => lines.push(line),
+    agent: { base: path.join(root, "base"), maxRounds: 2, features: { repoMap: false } } });
+  assert.equal(calls, 1, "额度耗尽不重试");
+  assert.equal(result.attempts.length, 1);
+  assert.equal(result.attempts[0].account_error, true);
+  assert.deepEqual({ ...result.stopped_early, error: undefined }, { after: 1, skipped: 3, error: undefined });
+  assert.match(result.stopped_early!.error!, /insufficient_quota/);
+  assert.equal(result.totals.pass_at_1, 0);
+  assert.deepEqual(result.totals.pass_at_k, { k: 2, value: 0 }, "没有任务跑满 2 次");
+  assert.match(lines.at(-1)!, /停止评测，其余 3 次不再运行/);
+  assert.match(await fs.readFile(files.markdown, "utf8"), /评测提前停止/);
+});

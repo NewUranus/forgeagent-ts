@@ -1,0 +1,12 @@
+===================================================================
+--- a/paginate.ts
++++ b/paginate.ts
+@@ -1,7 +1,7 @@
+ export function pageCount(total: number, size: number): number {
+   if (size <= 0) throw new RangeError("size must be positive");
+-  return Math.floor(total / size);
++  return Math.ceil(total / size);
+ }
+ 
+ export function pageItems<T>(items: T[], page: number, size: number): T[] {
+   const pages = pageCount(items.length, size);

@@ -356,7 +356,7 @@ export function applyEdit(content: string, oldStr: string, newStr: string) {
 }
 
 /** Syntax-only check after a write, so the model sees parse errors in the same round. */
-async function syntaxCheck(file: string, content: string): Promise<string> {
+export async function syntaxCheck(file: string, content: string): Promise<string> {
   let problems: string[] | null = null;
   if (/\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(file)) {
     const ts = (await import("typescript")).default;
